@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Product {
+  id                String            @id @default(cuid())
+  name              String
+  breadcrumbs       String            // JSON string
+  images            String            // JSON string array
+  price             Float
+  oldPrice          Float?
+  discountPercent   Int?
+  currency          String            @default("₽")
+  favorite          Boolean           @default(false)
+  pickupAvailability String
+  deliveryAvailability String
+  returnDays        Int               @default(14)
+  returnDetails     String
+  description       String
+  characteristics   ProductCharacteristic[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("products")
+}
+
+model ProductCharacteristic {
+  id        String  @id @default(cuid())
+  productId String
+  key       String
+  value     String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_characteristics")
+}
