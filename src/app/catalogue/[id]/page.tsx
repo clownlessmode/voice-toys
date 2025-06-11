@@ -2,10 +2,13 @@
 import Breadcrumbs from "@/components/ui/components/breadcrumbs";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { notFound, useParams } from "next/navigation";
 import H1 from "@/components/ui/typography/H1";
-import { products } from "@/components/entities/product";
+import {
+  getProductById,
+  Product as ProductType,
+} from "@/components/entities/product";
 import Image from "next/image";
 import H2 from "@/components/ui/typography/H2";
 import Descriptor from "@/components/ui/typography/Descriptor";
@@ -24,7 +27,6 @@ import {
 import Footer from "@/components/widgets/Footer";
 import { useCart } from "../../cart/use-cart";
 import { motion, AnimatePresence } from "framer-motion";
-import ProductSlider from "@/components/ui/components/product-slider";
 import { useFavorites } from "@/store/favoritesStore"; // Импортируем ваш хук
 
 const faq = [
@@ -100,7 +102,9 @@ const cardVariants = {
 
 const Page = () => {
   const params = useParams<{ id: string }>();
-  const product = products.find((p) => p.id === params.id);
+  const [product, setProduct] = useState<ProductType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
 
@@ -108,8 +112,42 @@ const Page = () => {
   const { isFavorite, toggleFavorite } = useFavorites();
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Если продукт не найден, показываем 404
-  if (!product) {
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const productData = await getProductById(params.id);
+        setProduct(productData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Ошибка загрузки");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProduct();
+  }, [params.id]);
+
+  // Если идет загрузка
+  if (loading) {
+    return (
+      <main
+        className={cn(
+          "px-[10px] gap-[80px]",
+          "xl:px-[50px] xl:gap-[100px]",
+          "2xl:px-[100px] 2xl:gap-[150px]",
+          "flex flex-col items-center justify-start min-h-screen bg-body-background"
+        )}
+      >
+        <Header />
+        <div className="flex justify-center items-center py-8">
+          <div className="text-lg">Загрузка продукта...</div>
+        </div>
+      </main>
+    );
+  }
+
+  // Если ошибка или продукт не найден
+  if (error || !product) {
     notFound();
   }
 
@@ -622,15 +660,16 @@ const Page = () => {
                   </motion.div>
                 </motion.div>
               </div>
-              <motion.div variants={cardVariants} className="col-span-3">
+              {/* Рекомендуемые товары пока отключены */}
+              {/* <motion.div variants={cardVariants} className="col-span-3">
                 <ProductSlider
                   title="Вам может понравиться"
-                  products={products}
+                  products={[]}
                   showViewAll={false}
                   viewAllLink="/catalogue"
                   viewAllText="смотреть все"
                 />
-              </motion.div>
+              </motion.div> */}
             </div>
           </div>
         </div>

@@ -1,59 +1,190 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCart } from "@/app/cart/use-cart";
+import Breadcrumbs from "@/components/ui/components/breadcrumbs";
 import H1 from "@/components/ui/typography/H1";
-import H3 from "@/components/ui/typography/H3";
-import Footer from "@/components/widgets/Footer";
+import H2 from "@/components/ui/typography/H2";
+import Descriptor from "@/components/ui/typography/Descriptor";
+import Button1 from "@/components/ui/typography/Button1";
 import Header from "@/components/widgets/Header";
+import Footer from "@/components/widgets/Footer";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-import React, { Suspense, useState } from "react";
-import { CartItem } from "../cart/cart-item";
-import { useCart } from "../cart/use-cart";
+export default function OrderPage() {
+  const { items, totalPrice, clearCart } = useCart();
+  const router = useRouter();
 
-const PageContent = () => {
-  const { items, totalPrice } = useCart();
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    city: "",
-    pickupPoint: "",
-    payment: "cash",
-    comment: "",
-    agreement: true,
+    customerName: "",
+    customerPhone: "",
+    customerEmail: "",
+    deliveryType: "pickup" as "pickup" | "cdek_office",
+    deliveryAddress: "",
+    cdekCity: "",
+    cdekCityCode: 0,
+    cdekOffice: "",
+    paymentType: "cash_on_delivery" as "online" | "cash_on_delivery",
   });
 
-  const handleSubmit = (e: any) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // СДЭК состояние
+  const [cities, setCities] = useState<
+    Array<{ code: number; name: string; region: string; fullName: string }>
+  >([]);
+  const [offices, setOffices] = useState<
+    Array<{ code: string; name: string; address: string; workTime: string }>
+  >([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  const [officeLoading, setOfficeLoading] = useState(false);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Поиск городов СДЭК
+  const handleCitySearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      cdekCity: value,
+      cdekCityCode: 0,
+      cdekOffice: "",
+    }));
+
+    if (value.length >= 2) {
+      setCityLoading(true);
+      try {
+        const response = await fetch(
+          `/api/delivery/cities?q=${encodeURIComponent(value)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setCities(data.cities || []);
+        }
+      } catch (error) {
+        console.error("Ошибка поиска городов:", error);
+      } finally {
+        setCityLoading(false);
+      }
+    } else {
+      setCities([]);
+    }
+  };
+
+  // Выбор города
+  const handleCitySelect = async (city: {
+    code: number;
+    name: string;
+    region: string;
+    fullName: string;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      cdekCity: city.fullName,
+      cdekCityCode: city.code,
+      cdekOffice: "",
+    }));
+    setCities([]);
+
+    // Загружаем ПВЗ для выбранного города
+    setOfficeLoading(true);
+    try {
+      const response = await fetch(
+        `/api/delivery/offices?cityCode=${city.code}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setOffices(data.offices || []);
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки ПВЗ:", error);
+    } finally {
+      setOfficeLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    return formData;
+    setLoading(true);
+    setError("");
+
+    try {
+      // Подготавливаем данные для отправки
+      const orderData = {
+        ...formData,
+        items: items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+        })),
+      };
+
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (response.ok) {
+        const order = await response.json();
+
+        // Очищаем корзину
+        clearCart();
+
+        // Перенаправляем на страницу успеха или платежки
+        if (formData.paymentType === "online") {
+          // TODO: Перенаправление на страницу платежки
+          router.push(`/order/payment/${order.id}`);
+        } else {
+          // Для оплаты при получении - на страницу успеха
+          router.push(`/order/success/${order.id}`);
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Ошибка при создании заказа");
+      }
+    } catch {
+      setError("Ошибка при создании заказа");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChange = (field: any, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: "easeOut",
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.3, ease: "easeOut" },
-    },
-  };
+  if (items.length === 0) {
+    return (
+      <main
+        className={cn(
+          "px-[10px] gap-[80px]",
+          "xl:px-[50px] xl:gap-[100px]",
+          "2xl:px-[100px] 2xl:gap-[150px]",
+          "flex flex-col items-center justify-start min-h-screen bg-body-background"
+        )}
+      >
+        <Header />
+        <div className="flex flex-col gap-[24px] w-full items-center">
+          <div className="text-center py-12">
+            <H1>Корзина пуста</H1>
+            <Descriptor className="mt-4">
+              Добавьте товары в корзину перед оформлением заказа
+            </Descriptor>
+            <Button1 className="mt-6" onClick={() => router.push("/catalogue")}>
+              Перейти в каталог
+            </Button1>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    );
+  }
 
   return (
     <main
@@ -65,337 +196,232 @@ const PageContent = () => {
       )}
     >
       <Header />
+
       <motion.div
-        className="flex flex-col gap-[48px] px-[12px] py-[24px] bg-background rounded-lg"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+        className="flex flex-col gap-[24px] w-full"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <motion.div variants={itemVariants}>
+        <div className="flex flex-col gap-[16px] w-full">
+          <Breadcrumbs
+            items={[
+              { title: "Главная", link: "/" },
+              { title: "Корзина", link: "/cart" },
+              { title: "Оформление заказа", link: "/order" },
+            ]}
+          />
           <H1>Оформление заказа</H1>
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="flex flex-col gap-[32px]"
-          variants={itemVariants}
-        >
-          <H3>Ваш заказ</H3>
-          <div className="h-px bg-black/5 w-full"></div>
-          <div className="flex flex-col gap-[24px]">
-            {items.map((item, index) => (
-              <motion.div
-                key={item.product.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: 0.3,
-                  ease: "easeOut",
-                  delay: index * 0.1,
-                }}
-              >
-                <CartItem
-                  className="bg-[rgba(32,32,32,0.03)]! rounded-2xl!"
-                  item={item}
-                />
-              </motion.div>
-            ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Форма заказа */}
+          <div className="bg-white rounded-lg p-6">
+            <H2 className="mb-6">Данные для заказа</H2>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Контактные данные */}
+              <div className="space-y-4">
+                <H2 className="text-lg">Контактные данные</H2>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Имя *
+                  </label>
+                  <input
+                    type="text"
+                    name="customerName"
+                    value={formData.customerName}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Введите ваше имя"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Телефон *
+                  </label>
+                  <input
+                    type="tel"
+                    name="customerPhone"
+                    value={formData.customerPhone}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="+7 (999) 000-00-00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="customerEmail"
+                    value={formData.customerEmail}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="example@mail.com"
+                  />
+                </div>
+              </div>
+
+              {/* Способ получения */}
+              <div className="space-y-4">
+                <H2 className="text-lg">Способ получения</H2>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Тип доставки
+                  </label>
+                  <select
+                    name="deliveryType"
+                    value={formData.deliveryType}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="pickup">Самовывоз</option>
+                    <option value="cdek_office">Пункт выдачи СДЭК</option>
+                  </select>
+                </div>
+
+                {formData.deliveryType === "cdek_office" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Город *
+                      </label>
+                      <input
+                        type="text"
+                        name="cdekCity"
+                        value={formData.cdekCity}
+                        onChange={handleCitySearch}
+                        required={formData.deliveryType === "cdek_office"}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Введите название города"
+                      />
+
+                      {cities.length > 0 && (
+                        <div className="mt-2 border border-gray-300 rounded-lg max-h-48 overflow-y-auto">
+                          {cities.map((city) => (
+                            <button
+                              key={city.code}
+                              type="button"
+                              onClick={() => handleCitySelect(city)}
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                            >
+                              <div className="font-medium">{city.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {city.region}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {formData.cdekCityCode > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Пункт выдачи *
+                        </label>
+                        <select
+                          name="cdekOffice"
+                          value={formData.cdekOffice}
+                          onChange={handleInputChange}
+                          required={formData.deliveryType === "cdek_office"}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">Выберите пункт выдачи</option>
+                          {offices.map((office) => (
+                            <option key={office.code} value={office.code}>
+                              {office.name} - {office.address}
+                            </option>
+                          ))}
+                        </select>
+
+                        {officeLoading && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Загрузка пунктов выдачи...
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Способ оплаты */}
+              <div className="space-y-4">
+                <H2 className="text-lg">Способ оплаты</H2>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Тип оплаты
+                  </label>
+                  <select
+                    name="paymentType"
+                    value={formData.paymentType}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="cash_on_delivery">
+                      Оплата при получении
+                    </option>
+                    <option value="online">Онлайн оплата</option>
+                  </select>
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              <Button1 type="submit" disabled={loading} className="w-full">
+                {loading ? "Оформление..." : "Оформить заказ"}
+              </Button1>
+            </form>
           </div>
-          <div className="h-px bg-black/5 w-full"></div>
-          <motion.div
-            className="flex flex-row justify-between"
-            whileHover={{ scale: 1.02 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <H3>Итого:</H3>
-            <H3>{totalPrice}₽</H3>
-          </motion.div>
-        </motion.div>
 
-        <motion.div variants={itemVariants}>
-          <H3 className="mt-[48px]">Ваш заказ</H3>
-        </motion.div>
+          {/* Сводка заказа */}
+          <div className="bg-white rounded-lg p-6 h-fit">
+            <H2 className="mb-6">Ваш заказ</H2>
 
-        <motion.form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-[32px]"
-          variants={itemVariants}
-        >
-          {/* Имя */}
-          <motion.div
-            className="flex flex-col gap-[8px]"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <label className="text-sm font-medium">Имя</label>
-            <motion.input
-              type="text"
-              placeholder="Имя"
-              value={formData.name}
-              onChange={(e) => handleChange("name", e.target.value)}
-              className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none placeholder:text-gray-400 transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            />
-          </motion.div>
-
-          {/* Телефон */}
-          <motion.div
-            className="flex flex-col gap-[8px]"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <label className="text-sm font-medium">Телефон</label>
-            <motion.input
-              type="tel"
-              placeholder="+7 (999) 123 12 12"
-              value={formData.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
-              className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none placeholder:text-gray-400 transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            />
-          </motion.div>
-
-          {/* E-mail */}
-          <motion.div
-            className="flex flex-col gap-[8px]"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <label className="text-sm font-medium">E-mail</label>
-            <motion.input
-              type="email"
-              placeholder="e-mail@mail.com"
-              value={formData.email}
-              onChange={(e) => handleChange("email", e.target.value)}
-              className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none placeholder:text-gray-400 transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            />
-          </motion.div>
-
-          {/* Доставка */}
-          <motion.div
-            className="flex flex-col gap-[16px]"
-            variants={itemVariants}
-          >
-            <H3>Доставка</H3>
-
-            <motion.div
-              className="flex flex-col gap-[8px]"
-              whileHover={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <motion.select
-                value={formData.city}
-                onChange={(e) => handleChange("city", e.target.value)}
-                className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none text-gray-600 transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-                whileFocus={{ scale: 1.01 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <option value="">Город</option>
-                <option value="moscow">Москва</option>
-                <option value="spb">Санкт-Петербург</option>
-              </motion.select>
-            </motion.div>
-
-            <motion.div
-              className="flex flex-col gap-[8px]"
-              whileHover={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <motion.select
-                value={formData.pickupPoint}
-                onChange={(e) => handleChange("pickupPoint", e.target.value)}
-                className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none text-gray-600 transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-                whileFocus={{ scale: 1.01 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <option value="">Пункт выдачи</option>
-                <option value="point1">Пункт выдачи 1</option>
-                <option value="point2">Пункт выдачи 2</option>
-              </motion.select>
-            </motion.div>
-          </motion.div>
-
-          {/* Оплата */}
-          <motion.div
-            className="flex flex-col gap-[16px]"
-            variants={itemVariants}
-          >
-            <H3>Оплата</H3>
-
-            <div className="flex flex-col gap-[12px]">
-              <motion.label
-                className="flex items-center gap-[12px] cursor-pointer"
-                whileHover={{ scale: 1.02, x: 5 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <div className="relative">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="cash"
-                    checked={formData.payment === "cash"}
-                    onChange={(e) => handleChange("payment", e.target.value)}
-                    className="sr-only"
-                  />
-                  <motion.div
-                    className={cn(
-                      "w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center transition-all duration-200",
-                      formData.payment === "cash"
-                        ? "border-primary bg-primary"
-                        : "border-gray-300 bg-white"
-                    )}
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                  >
-                    {formData.payment === "cash" && (
-                      <motion.div
-                        className="w-[8px] h-[8px] bg-white rounded-full"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                      />
-                    )}
-                  </motion.div>
+            <div className="space-y-4">
+              {items.map((item) => (
+                <div
+                  key={item.product.id}
+                  className="flex justify-between items-center"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium">{item.product.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {item.product.price.current} ₽ × {item.quantity} шт.
+                    </div>
+                  </div>
+                  <div className="font-medium">
+                    {item.product.price.current * item.quantity} ₽
+                  </div>
                 </div>
-                <span>При получении</span>
-              </motion.label>
-
-              <motion.label
-                className="flex items-center gap-[12px] cursor-pointer"
-                whileHover={{ scale: 1.02, x: 5 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <div className="relative">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="online"
-                    checked={formData.payment === "online"}
-                    onChange={(e) => handleChange("payment", e.target.value)}
-                    className="sr-only"
-                  />
-                  <motion.div
-                    className={cn(
-                      "w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center transition-all duration-200",
-                      formData.payment === "online"
-                        ? "border-primary bg-primary"
-                        : "border-gray-300 bg-white"
-                    )}
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                  >
-                    {formData.payment === "online" && (
-                      <motion.div
-                        className="w-[8px] h-[8px] bg-white rounded-full"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                      />
-                    )}
-                  </motion.div>
-                </div>
-                <span>Онлайн оплата</span>
-              </motion.label>
+              ))}
             </div>
-          </motion.div>
 
-          {/* Комментарий */}
-          <motion.div
-            className="flex flex-col gap-[8px]"
-            whileHover={{ scale: 1.01 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <motion.textarea
-              placeholder="Комментарий к заказу"
-              value={formData.comment}
-              onChange={(e) => handleChange("comment", e.target.value)}
-              rows={4}
-              className="px-[16px] py-[12px] bg-[rgba(32,32,32,0.03)] rounded-lg border-none outline-none placeholder:text-gray-400 resize-none transition-all duration-200 focus:bg-[rgba(32,32,32,0.06)] focus:scale-[1.01]"
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            />
-          </motion.div>
-
-          {/* Кнопка отправки */}
-          <motion.button
-            type="submit"
-            className="px-[24px] py-[16px] bg-primary text-black font-medium rounded-lg transition-all duration-200"
-            whileHover={{
-              scale: 1.02,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
-            }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            Оформить заказ
-          </motion.button>
-
-          {/* Согласие */}
-          <motion.label
-            className="flex items-start gap-[12px] cursor-pointer"
-            whileHover={{ scale: 1.01, x: 5 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-          >
-            <div className="relative mt-[2px]">
-              <input
-                type="checkbox"
-                checked={formData.agreement}
-                onChange={(e) => handleChange("agreement", e.target.checked)}
-                className="sr-only"
-              />
-              <motion.div
-                className={cn(
-                  "w-[20px] h-[20px] rounded border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
-                  formData.agreement
-                    ? "border-primary bg-primary"
-                    : "border-gray-300 bg-white"
-                )}
-                whileHover={{ scale: 1.1 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                {formData.agreement && (
-                  <motion.svg
-                    className="w-[12px] h-[12px] text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={3}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </motion.svg>
-                )}
-              </motion.div>
+            <div className="border-t pt-4 mt-4">
+              <div className="flex justify-between items-center text-lg font-semibold">
+                <span>Итого:</span>
+                <span>{totalPrice} ₽</span>
+              </div>
             </div>
-            <span className="text-sm text-gray-600">
-              Я согласен(а) с условиями доставки, политикой конфиденциальности
-            </span>
-          </motion.label>
-        </motion.form>
+          </div>
+        </div>
       </motion.div>
 
       <Footer />
     </main>
   );
-};
-const Page = () => {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <PageContent />
-    </Suspense>
-  );
-};
-
-export default Page;
+}

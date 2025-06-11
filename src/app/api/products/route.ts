@@ -21,13 +21,14 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get("page");
     const favorite = searchParams.get("favorite");
 
-    let whereClause: any = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = {};
 
-    // Поиск по названию и описанию
+    // Поиск по названию и описанию (SQLite case-insensitive)
     if (search) {
       whereClause.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 

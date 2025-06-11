@@ -9,11 +9,12 @@ import { UpdateProductRequest } from "@/components/entities/product/model/types"
 // GET - Получение продукта по ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         characteristics: true,
       },
@@ -41,14 +42,15 @@ export async function GET(
 // PUT - Полное обновление продукта
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body: UpdateProductRequest = await request.json();
 
     // Проверяем существование продукта
     const existingProduct = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingProduct) {
@@ -66,12 +68,12 @@ export async function PUT(
 
     // Удаляем старые характеристики
     await prisma.productCharacteristic.deleteMany({
-      where: { productId: params.id },
+      where: { productId: id },
     });
 
     // Обновляем продукт
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: body.name,
         breadcrumbs: JSON.stringify(body.breadcrumbs),
@@ -114,17 +116,17 @@ export async function PUT(
 }
 
 // PATCH - Частичное обновление продукта
-// PATCH - Частичное обновление продукта
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Проверяем существование продукта
     const existingProduct = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { characteristics: true },
     });
 
@@ -133,7 +135,7 @@ export async function PATCH(
     }
 
     // Подготавливаем данные для обновления
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (body.name !== undefined) updateData.name = body.name;
     if (body.breadcrumbs !== undefined)
@@ -159,19 +161,21 @@ export async function PATCH(
     // Если обновляются характеристики, удаляем старые и создаем новые
     if (body.characteristics !== undefined) {
       await prisma.productCharacteristic.deleteMany({
-        where: { productId: params.id },
+        where: { productId: id },
       });
 
       updateData.characteristics = {
-        create: body.characteristics.map((char: any) => ({
-          key: char.key,
-          value: char.value,
-        })),
+        create: body.characteristics.map(
+          (char: { key: string; value: string }) => ({
+            key: char.key,
+            value: char.value,
+          })
+        ),
       };
     }
 
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         characteristics: true,
@@ -196,12 +200,14 @@ export async function PATCH(
 // DELETE - Удаление продукта
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     // Проверяем существование продукта
     const existingProduct = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingProduct) {
@@ -210,11 +216,11 @@ export async function DELETE(
 
     // Удаляем продукт (характеристики удалятся автоматически благодаря onDelete: Cascade)
     await prisma.product.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json(
-      { message: "Product deleted successfully", id: params.id },
+      { message: "Product deleted successfully", id },
       { status: 200 }
     );
   } catch (error) {

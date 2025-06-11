@@ -6,14 +6,13 @@ import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import React, { Suspense } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { CartItem } from "./cart-item";
 import { useCart } from "./use-cart";
 import H2 from "@/components/ui/typography/H2";
 import Button1 from "@/components/ui/typography/Button1";
 import { motion } from "framer-motion";
 import ProductSlider from "@/components/ui/components/product-slider";
-import { products } from "@/components/entities/product";
 
 // Варианты анимаций
 const containerVariants = {
@@ -65,6 +64,24 @@ const emptyStateVariants = {
 
 const CartContent = () => {
   const { items, totalItems, totalPrice } = useCart();
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+
+  useEffect(() => {
+    // Загружаем рекомендованные продукты
+    const fetchRecommended = async () => {
+      try {
+        const response = await fetch("/api/products/recommended?limit=8");
+        if (response.ok) {
+          const data = await response.json();
+          setRecommendedProducts(data.products);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки рекомендаций:", error);
+      }
+    };
+
+    fetchRecommended();
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -121,16 +138,17 @@ const CartContent = () => {
             </motion.div>
           </motion.div>
 
-          {/* Рекомендации даже при пустой корзине */}
-          <motion.div variants={itemVariants} className="w-full">
-            <ProductSlider
-              title="Рекомендуем лично вам"
-              products={products}
-              showViewAll={true}
-              viewAllLink="/catalogue"
-              viewAllText="смотреть все"
-            />
-          </motion.div>
+          {recommendedProducts.length > 0 && (
+            <motion.div variants={itemVariants} className="w-full">
+              <ProductSlider
+                title="Рекомендуем лично вам"
+                products={recommendedProducts}
+                showViewAll={true}
+                viewAllLink="/catalogue"
+                viewAllText="смотреть все"
+              />
+            </motion.div>
+          )}
         </motion.div>
         <Footer />
       </main>
@@ -236,15 +254,17 @@ const CartContent = () => {
             </motion.div>
           </motion.div>
         </div>
-        <motion.div variants={itemVariants}>
-          <ProductSlider
-            title="Рекомендуем лично вам"
-            products={products}
-            showViewAll={true}
-            viewAllLink="/catalogue"
-            viewAllText="смотреть все"
-          />
-        </motion.div>
+        {recommendedProducts.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <ProductSlider
+              title="Рекомендуем лично вам"
+              products={recommendedProducts}
+              showViewAll={true}
+              viewAllLink="/catalogue"
+              viewAllText="смотреть все"
+            />
+          </motion.div>
+        )}
       </motion.div>
       <Footer />
     </main>

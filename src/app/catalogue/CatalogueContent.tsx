@@ -1,6 +1,9 @@
 "use client";
 import { categories, CategoryBadge } from "@/components/entities/category";
-import { products } from "@/components/entities/product";
+import {
+  getProducts,
+  Product as ProductType,
+} from "@/components/entities/product";
 import { Product } from "@/components/entities/product/ui";
 import { types } from "@/components/entities/type";
 import Breadcrumbs from "@/components/ui/components/breadcrumbs";
@@ -10,10 +13,24 @@ import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+
+const ageMap: { [key: string]: string } = {
+  "6м-2года": "6 м. – 2 года",
+  "3-4года": "3 – 4 года",
+  "5-7лет": "5 – 7 лет",
+  "8-10лет": "8 – 10 лет",
+};
+
+const ageMapReverse: { [key: string]: string } = {
+  "6 м. – 2 года": "6м-2года",
+  "3 – 4 года": "3-4года",
+  "5 – 7 лет": "5-7лет",
+  "8 – 10 лет": "8-10лет",
+};
 
 const CatalogueContent = () => {
   const searchParams = useSearchParams();
@@ -21,7 +38,33 @@ const CatalogueContent = () => {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAges, setSelectedAges] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [products, setProducts] = useState<ProductType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Загрузка продуктов из API
+  const fetchProducts = async (
+    search?: string,
+    type?: string,
+    age?: string
+  ) => {
+    try {
+      setLoading(true);
+      const response = await getProducts({
+        search,
+        type,
+        age,
+        limit: 100,
+      });
+      setProducts(response.products);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка загрузки");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Инициализация фильтров из URL при загрузке страницы
   useEffect(() => {
@@ -34,12 +77,6 @@ const CatalogueContent = () => {
     }
 
     if (ageParam) {
-      const ageMap: { [key: string]: string } = {
-        "6м-2года": "6 м. – 2 года",
-        "3-4года": "3 – 4 года",
-        "5-7лет": "5 – 7 лет",
-        "8-10лет": "8 – 10 лет",
-      };
       const readableAge = ageMap[ageParam];
       if (readableAge) {
         setSelectedAges([readableAge]);
@@ -49,6 +86,13 @@ const CatalogueContent = () => {
     if (searchParam) {
       setSearchQuery(decodeURIComponent(searchParam));
     }
+
+    // Загружаем продукты с учетом параметров из URL
+    fetchProducts(
+      searchParam ? decodeURIComponent(searchParam) : undefined,
+      typeParam ? decodeURIComponent(typeParam) : undefined,
+      ageParam || undefined
+    );
   }, [searchParams]);
 
   // Обновление URL при изменении фильтров
@@ -61,13 +105,7 @@ const CatalogueContent = () => {
     }
 
     if (ages.length > 0) {
-      const ageMap: { [key: string]: string } = {
-        "6 м. – 2 года": "6м-2года",
-        "3 – 4 года": "3-4года",
-        "5 – 7 лет": "5-7лет",
-        "8 – 10 лет": "8-10лет",
-      };
-      const urlAge = ageMap[ages[0]];
+      const urlAge = ageMapReverse[ages[0]];
       if (urlAge) {
         params.set("age", urlAge);
       }
@@ -83,74 +121,15 @@ const CatalogueContent = () => {
 
     router.push(newURL, { scroll: false });
 
+    // Загружаем новые продукты
+    fetchProducts(
+      search.trim() || undefined,
+      types[0] || undefined,
+      ages.length > 0 ? ageMapReverse[ages[0]] : undefined
+    );
+
     setTimeout(() => setIsLoading(false), 300);
   };
-
-  // Фильтрация продуктов на основе выбранных фильтров и поиска
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
-
-    // Фильтрация по поиску
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query)
-      );
-    }
-
-    // Фильтрация по типам
-    if (selectedTypes.length > 0) {
-      filtered = filtered.filter((product) => {
-        const productType = product.breadcrumbs[2];
-        return selectedTypes.includes(productType);
-      });
-    }
-
-    // Фильтрация по возрасту
-    if (selectedAges.length > 0) {
-      filtered = filtered.filter((product) => {
-        const ageCharacteristic = product.characteristics.find(
-          (char) => char.key === "Возраст"
-        );
-
-        if (!ageCharacteristic) return false;
-
-        const productAge = ageCharacteristic.value;
-
-        return selectedAges.some((selectedAge) => {
-          switch (selectedAge) {
-            case "6 м. – 2 года":
-              return (
-                productAge.includes("1+") ||
-                productAge.includes("0+") ||
-                productAge.includes("6м") ||
-                productAge.includes("1-2")
-              );
-            case "3 – 4 года":
-              return productAge.includes("3+") || productAge.includes("3-4");
-            case "5 – 7 лет":
-              return (
-                productAge.includes("5+") ||
-                productAge.includes("6+") ||
-                productAge.includes("5-7")
-              );
-            case "8 – 10 лет":
-              return (
-                productAge.includes("8+") ||
-                productAge.includes("9+") ||
-                productAge.includes("8-10")
-              );
-            default:
-              return false;
-          }
-        });
-      });
-    }
-
-    return filtered;
-  }, [selectedTypes, selectedAges, searchQuery]);
 
   // Обработчик клика по типу
   const handleTypeClick = (typeTitle: string) => {
@@ -184,6 +163,7 @@ const CatalogueContent = () => {
     setSelectedAges([]);
     setSearchQuery("");
     router.push("/catalogue", { scroll: false });
+    fetchProducts(); // Загружаем все продукты
   };
 
   const containerVariants = {
@@ -228,6 +208,22 @@ const CatalogueContent = () => {
     },
   };
 
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg text-red-500 mb-4">Ошибка: {error}</div>
+          <button
+            onClick={() => fetchProducts()}
+            className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.main
       className={cn(
@@ -262,13 +258,13 @@ const CatalogueContent = () => {
             <div className="flex flex-row gap-[16px] items-end">
               <H1>Каталог</H1>
               <motion.div
-                key={filteredProducts.length}
+                key={products.length}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3 }}
               >
                 <Descriptor className="text-black/30 mb-[2px]">
-                  {filteredProducts.length} товаров
+                  {loading ? "Загрузка..." : `${products.length} товаров`}
                 </Descriptor>
               </motion.div>
             </div>
@@ -364,7 +360,7 @@ const CatalogueContent = () => {
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {isLoading ? (
+          {loading || isLoading ? (
             <motion.div
               key="loading"
               className="grid grid-cols-2 gap-[10px]"
@@ -388,8 +384,8 @@ const CatalogueContent = () => {
               initial="hidden"
               animate="visible"
             >
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((item) => (
+              {products.length > 0 ? (
+                products.map((item) => (
                   <motion.div
                     key={`${item.id}-${selectedTypes.join(
                       "-"

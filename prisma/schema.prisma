@@ -23,6 +23,7 @@ model Product {
   returnDetails     String
   description       String
   characteristics   ProductCharacteristic[]
+  orderItems        OrderItem[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -37,4 +38,54 @@ model ProductCharacteristic {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("product_characteristics")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique // Номер заказа для клиента (например, #2024-001)
+  status      OrderStatus @default(CREATED)
+  
+  // Данные покупателя
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  
+  // Доставка
+  deliveryType    String // "pickup" или "delivery"
+  deliveryAddress String?
+  
+  // Сумма заказа
+  totalAmount   Float
+  currency      String  @default("₽")
+  
+  // Товары в заказе
+  items         OrderItem[]
+  
+  // Даты
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  paidAt        DateTime?
+  
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int     @default(1)
+  price     Float   // Цена на момент заказа
+  
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  CREATED    // Создан
+  PAID       // Оплачен
+  SHIPPED    // Отправлен
+  DELIVERED  // Доставлен
+  CANCELLED  // Отменен
 }
