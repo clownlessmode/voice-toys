@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/app/cart/use-cart";
 import Breadcrumbs from "@/components/ui/components/breadcrumbs";
@@ -13,7 +13,7 @@ import Footer from "@/components/widgets/Footer";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-export default function OrderPage() {
+const OrderPage = () => {
   const { items, totalPrice, clearCart } = useCart();
   const router = useRouter();
 
@@ -41,7 +41,7 @@ export default function OrderPage() {
   >([]);
   const [cityLoading, setCityLoading] = useState(false);
   const [officeLoading, setOfficeLoading] = useState(false);
-
+  console.log(cityLoading);
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -424,4 +424,14 @@ export default function OrderPage() {
       <Footer />
     </main>
   );
-}
+};
+
+const Page = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OrderPage />
+    </Suspense>
+  );
+};
+
+export default Page;

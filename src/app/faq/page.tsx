@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Header from "@/components/widgets/Header";
 import Footer from "@/components/widgets/Footer";
@@ -107,7 +107,7 @@ function FAQAccordionItem({
   );
 }
 
-export default function FAQPage() {
+const FAQPage = () => {
   const [openItems, setOpenItems] = useState<Set<number>>(new Set());
 
   const toggleItem = (index: number) => {
@@ -222,4 +222,14 @@ export default function FAQPage() {
       <Footer />
     </main>
   );
-}
+};
+
+const Page = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FAQPage />
+    </Suspense>
+  );
+};
+
+export default Page;
