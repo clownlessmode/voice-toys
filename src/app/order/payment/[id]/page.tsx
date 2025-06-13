@@ -186,9 +186,9 @@ export default function PaymentPage() {
   return (
     <main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >

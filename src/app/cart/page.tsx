@@ -13,6 +13,7 @@ import H2 from "@/components/ui/typography/H2";
 import Button1 from "@/components/ui/typography/Button1";
 import { motion } from "framer-motion";
 import ProductSlider from "@/components/ui/components/product-slider";
+import { notFound } from "next/navigation";
 
 // Варианты анимаций
 const containerVariants = {
@@ -50,18 +51,6 @@ const cardVariants = {
   },
 };
 
-const emptyStateVariants = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 0.6,
-      ease: "easeOut",
-    },
-  },
-};
-
 const CartContent = () => {
   const { items, totalItems, totalPrice } = useCart();
   const [recommendedProducts, setRecommendedProducts] = useState([]);
@@ -84,83 +73,15 @@ const CartContent = () => {
   }, []);
 
   if (items.length === 0) {
-    return (
-      <main
-        className={cn(
-          "px-[10px] gap-[80px]",
-          "xl:px-[50px] xl:gap-[100px]",
-          "2xl:px-[100px] 2xl:gap-[150px]",
-          "flex flex-col items-center justify-start min-h-screen bg-body-background"
-        )}
-      >
-        <Header />
-        <motion.div
-          className="flex flex-col gap-[24px] w-full items-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <div className="flex flex-col gap-[16px] w-full">
-            <motion.div variants={itemVariants}>
-              <Breadcrumbs
-                items={[
-                  { title: "Главная", link: "/" },
-                  { title: "Корзина", link: "/cart" },
-                ]}
-              />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <H1>Корзина</H1>
-            </motion.div>
-          </div>
-
-          <motion.div
-            className="flex flex-col items-center gap-[24px] py-[100px]"
-            variants={emptyStateVariants}
-          >
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-4">Корзина пуста</h2>
-              <Descriptor className="text-gray-500 mb-8">
-                Добавьте товары из каталога, чтобы они появились здесь
-              </Descriptor>
-            </div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Link
-                href="/catalogue"
-                className="bg-primary text-foreground px-8 py-3 rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Перейти в каталог
-              </Link>
-            </motion.div>
-          </motion.div>
-
-          {recommendedProducts.length > 0 && (
-            <motion.div variants={itemVariants} className="w-full">
-              <ProductSlider
-                title="Рекомендуем лично вам"
-                products={recommendedProducts}
-                showViewAll={true}
-                viewAllLink="/catalogue"
-                viewAllText="смотреть все"
-              />
-            </motion.div>
-          )}
-        </motion.div>
-        <Footer />
-      </main>
-    );
+    notFound();
   }
 
   return (
     <main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >
@@ -201,13 +122,11 @@ const CartContent = () => {
           <motion.div
             className="bg-white p-[24px] rounded-lg flex flex-col gap-[24px] lg:h-fit"
             variants={cardVariants}
-            whileHover={{ y: -3, boxShadow: "0 10px 25px rgba(0,0,0,0.1)" }}
             transition={{ duration: 0.3 }}
           >
             <motion.div
               className="flex justify-between items-center"
               variants={itemVariants}
-              whileHover={{ x: 2 }}
               transition={{ duration: 0.2 }}
             >
               <Descriptor className="text-gray-500">
@@ -226,7 +145,6 @@ const CartContent = () => {
             <motion.div
               className="flex justify-between items-center"
               variants={itemVariants}
-              whileHover={{ x: 2 }}
               transition={{ duration: 0.2 }}
             >
               <H2>Итого</H2>
@@ -255,7 +173,7 @@ const CartContent = () => {
           </motion.div>
         </div>
         {recommendedProducts.length > 0 && (
-          <motion.div variants={itemVariants}>
+          <motion.div variants={itemVariants} className="mt-[40px]">
             <ProductSlider
               title="Рекомендуем лично вам"
               products={recommendedProducts}

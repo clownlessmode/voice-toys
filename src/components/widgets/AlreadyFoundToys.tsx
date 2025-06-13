@@ -6,7 +6,7 @@ import Link from "next/link";
 
 const AlreadyFoundToys = () => {
   return (
-    <div className="flex flex-col gap-[24px] rounded-[20px] bg-white overflow-hidden justify-center items-center text-center lg:text-start md:flex-row w-full md:justify-between">
+    <div className="flex flex-col gap-[24px] rounded-[20px] bg-white overflow-hidden justify-center items-center text-center lg:text-start md:flex-row w-full md:justify-between lg:max-h-[375px]">
       <div className="flex flex-col gap-[48px] py-[32px] px-[16px] sm:p-[32px] w-full md:w-fit items-center lg:items-start">
         <H2>Уже присмотрели игрушку?</H2>
         <T1 className="max-w-[320px]">
@@ -21,7 +21,7 @@ const AlreadyFoundToys = () => {
       <Image
         alt="baby"
         src={`/already-found-toys/bg.png`}
-        className="overflow-hidden rounded-t-[20px] sm:rounded-[20px] object-cover aspect-[9/12] sm:aspect-auto md:w-auto h-full max-w-1/2"
+        className="overflow-hidden rounded-t-[20px] sm:rounded-[20px] object-cover aspect-[9/12] sm:aspect-auto md:w-auto h-full  w-full lg:max-h-[375px]"
         width={1000}
         height={1000}
       />

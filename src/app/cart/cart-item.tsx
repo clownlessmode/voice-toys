@@ -108,10 +108,16 @@ export const CartItem = ({ item, disabledDesc, className }: Props) => {
             </button>
           </div>
           <div className="flex flex-row gap-[16px] w-full justify-end items-center pr-4">
-            <button onClick={handleRemove}>
+            <button
+              onClick={handleRemove}
+              className="hover:scale-140 cursor-pointer transition-all"
+            >
               <Trash2 size={18} />
             </button>
-            <button onClick={handleToggleFavorite}>
+            <button
+              onClick={handleToggleFavorite}
+              className="hover:scale-140 cursor-pointer transition-all"
+            >
               <Heart
                 size={18}
                 className={`${

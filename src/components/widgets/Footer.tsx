@@ -64,18 +64,22 @@ const Footer = () => {
   return (
     <div className="w-full flex flex-col md:items-start gap-[64px] bg-white px-[16px] py-[32px] rounded-t-[20px] md:grid md:grid-cols-3 md:p-[64px] lg:flex-col lg:flex lg:w-full">
       <Logotype />
-      <div className="flex flex-row flex-wrap col-span-2 gap-[64px] lg:grid lg:grid-cols-2 lg:w-full">
+      <div className="flex flex-row flex-wrap col-span-2 gap-[64px] lg:grid lg:grid-cols-3 lg:w-full">
         <FooterGroup title="Меню" items={main} />
         <FooterGroup title="Покупателям" items={clients} />
         <div className="flex flex-col gap-[32px] w-full ">
           <H3>Контакты</H3>
           <div className="flex flex-col gap-[16px]">
-            <H2>info@voicetoys.ru</H2>
-            <H2>+7 (000) 000-00-00</H2>
+            <H2>
+              <Link href={"mailto:voicetoys@mail.ru"}>voicetoys@mail.ru</Link>
+            </H2>
+            <H2>
+              <Link href={"tel:+7 (924) 338-23-31"}>+7 (924) 338-23-31</Link>
+            </H2>
           </div>
         </div>
         <div className="flex flex-col gap-[16px]">
-          <Descriptor>ИНН / ОГРН / Название ИП или ООО</Descriptor>
+          {/* <Descriptor>ИНН / ОГРН / Название ИП или ООО</Descriptor> */}
           <Descriptor>© 2025 Voicetoys. Все права защищены.</Descriptor>
         </div>
       </div>

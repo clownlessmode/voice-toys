@@ -1,14 +1,19 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Suspense } from "react";
+
 import Header from "@/components/widgets/Header";
 import Footer from "@/components/widgets/Footer";
 import H1 from "@/components/ui/typography/H1";
-import H2 from "@/components/ui/typography/H2";
 import Descriptor from "@/components/ui/typography/Descriptor";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import {
+  Accordion,
+  AccordionTrigger,
+  AccordionItem,
+  AccordionContent,
+} from "@/components/ui/accordion";
 
 interface FAQItem {
   question: string;
@@ -57,83 +62,13 @@ const faqData: FAQItem[] = [
   },
 ];
 
-function FAQAccordionItem({
-  item,
-  isOpen,
-  onToggle,
-}: {
-  item: FAQItem;
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <motion.div
-      className="border border-gray-200 rounded-lg overflow-hidden"
-      initial={false}
-      animate={{ backgroundColor: isOpen ? "#f9fafb" : "#ffffff" }}
-      transition={{ duration: 0.2 }}
-    >
-      <button
-        className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-        onClick={onToggle}
-      >
-        <H2 className="text-lg font-medium text-gray-900 pr-4">
-          {item.question}
-        </H2>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="h-5 w-5 text-gray-500" />
-        </motion.div>
-      </button>
-
-      <motion.div
-        initial={false}
-        animate={{
-          height: isOpen ? "auto" : 0,
-          opacity: isOpen ? 1 : 0,
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="overflow-hidden"
-      >
-        <div className="px-6 pb-4">
-          <Descriptor className="text-gray-600 whitespace-pre-line">
-            {item.answer}
-          </Descriptor>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 const FAQPage = () => {
-  const [openItems, setOpenItems] = useState<Set<number>>(new Set());
-
-  const toggleItem = (index: number) => {
-    const newOpenItems = new Set(openItems);
-    if (newOpenItems.has(index)) {
-      newOpenItems.delete(index);
-    } else {
-      newOpenItems.add(index);
-    }
-    setOpenItems(newOpenItems);
-  };
-
-  const toggleAll = () => {
-    if (openItems.size === faqData.length) {
-      setOpenItems(new Set());
-    } else {
-      setOpenItems(new Set(faqData.map((_, index) => index)));
-    }
-  };
-
   return (
     <main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >
@@ -153,70 +88,25 @@ const FAQPage = () => {
             возврате товаров и гарантии
           </Descriptor>
         </div>
-
-        {/* Controls */}
-        <div className="flex justify-center">
-          <button
-            onClick={toggleAll}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            {openItems.size === faqData.length ? (
-              <>
-                <ChevronUp className="h-4 w-4" />
-                Свернуть все
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-4 w-4" />
-                Развернуть все
-              </>
-            )}
-          </button>
-        </div>
-
         {/* FAQ Items */}
-        <motion.div
-          className="space-y-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
+        <Accordion type="single" collapsible className="gap-4 flex flex-col">
           {faqData.map((item, index) => (
-            <FAQAccordionItem
+            <motion.div
               key={index}
-              item={item}
-              isOpen={openItems.has(index)}
-              onToggle={() => toggleItem(index)}
-            />
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1, duration: 0.3 }}
+            >
+              <AccordionItem
+                value={item.answer}
+                className="bg-white rounded-2xl px-4"
+              >
+                <AccordionTrigger>{item.question}</AccordionTrigger>
+                <AccordionContent>{item.answer}</AccordionContent>
+              </AccordionItem>
+            </motion.div>
           ))}
-        </motion.div>
-
-        {/* Contact Section */}
-        <motion.div
-          className="bg-blue-50 rounded-lg p-8 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <H2 className="mb-4 text-blue-800">Не нашли ответ на свой вопрос?</H2>
-          <Descriptor className="text-blue-700 mb-6">
-            Свяжитесь с нами, и мы обязательно поможем!
-          </Descriptor>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="tel:+7999999999"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Позвонить
-            </a>
-            <a
-              href="mailto:info@voice-toys.ru"
-              className="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
-            >
-              Написать email
-            </a>
-          </div>
-        </motion.div>
+        </Accordion>
       </motion.div>
 
       <Footer />

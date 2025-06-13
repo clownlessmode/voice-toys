@@ -1,15 +1,15 @@
 "use client";
 import Breadcrumbs from "@/components/ui/components/breadcrumbs";
-import Descriptor from "@/components/ui/typography/Descriptor";
 import H1 from "@/components/ui/typography/H1";
 import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
+
 import React, { Suspense } from "react";
 import { Product } from "@/components/entities/product/ui";
 import { useFavorites } from "@/store/favoritesStore";
 import { motion } from "framer-motion";
+import { notFound } from "next/navigation";
 
 // Варианты анимаций
 const containerVariants = {
@@ -35,87 +35,19 @@ const itemVariants = {
   },
 };
 
-const emptyStateVariants = {
-  hidden: { opacity: 0, scale: 0.9 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 0.6,
-      ease: "easeOut",
-    },
-  },
-};
-
 const FavoritesContent = () => {
   const { favorites, favoritesCount } = useFavorites();
 
   if (favorites.length === 0) {
-    return (
-      <main
-        className={cn(
-          "px-[10px] gap-[80px]",
-          "xl:px-[50px] xl:gap-[100px]",
-          "2xl:px-[100px] 2xl:gap-[150px]",
-          "flex flex-col items-center justify-start min-h-screen bg-body-background"
-        )}
-      >
-        <Header />
-        <motion.div
-          className="flex flex-col gap-[24px] w-full items-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <div className="flex flex-col gap-[16px] w-full">
-            <motion.div variants={itemVariants}>
-              <Breadcrumbs
-                items={[
-                  { title: "Главная", link: "/" },
-                  { title: "Избранное", link: "/favorites" },
-                ]}
-              />
-            </motion.div>
-            <motion.div variants={itemVariants}>
-              <H1>Избранное (0)</H1>
-            </motion.div>
-          </div>
-
-          <motion.div
-            className="flex flex-col items-center gap-[24px] py-[100px]"
-            variants={emptyStateVariants}
-          >
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-4">Избранное пусто</h2>
-              <Descriptor className="text-gray-500 mb-8">
-                Добавьте товары в избранное, чтобы они появились здесь
-              </Descriptor>
-            </div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Link
-                href="/catalogue"
-                className="bg-primary text-white px-8 py-3 rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                Перейти в каталог
-              </Link>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-        <Footer />
-      </main>
-    );
+    notFound();
   }
 
   return (
     <main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >

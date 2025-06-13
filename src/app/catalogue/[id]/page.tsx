@@ -8,6 +8,7 @@ import H1 from "@/components/ui/typography/H1";
 import {
   getProductById,
   Product as ProductType,
+  getProductsByCategory,
 } from "@/components/entities/product";
 import Image from "next/image";
 import H2 from "@/components/ui/typography/H2";
@@ -28,27 +29,48 @@ import Footer from "@/components/widgets/Footer";
 import { useCart } from "../../cart/use-cart";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFavorites } from "@/store/favoritesStore"; // Импортируем ваш хук
+import ProductSlider from "@/components/ui/components/product-slider";
 
 const faq = [
   {
     title: "Как оформить заказ?",
-    description: "Текст вопросы и ответы",
+    description:
+      "Выбрать товар → добавить в корзину → ввести адрес → выбрать доставку и оплату → оплатить → получить подтверждение и ждать доставку.",
   },
   {
-    title: "Как происходит доставка?",
-    description: "Текст вопросы и ответы",
+    title: "Можно ли вернуть или обменять товар?",
+    description:
+      "Да. Заказ можно вернуть в течение 14 дней, при условии сохранения упаковки, чека, товарного вида и полного комплекта.",
   },
   {
-    title: "Что, если товар не подойдёт?",
-    description: "Текст вопросы и ответы",
+    title: "Что является причиной возврата?",
+    description:
+      "Товар не подошёл по форме, габаритам, фасону, расцветке, размеру или комплектации. При этом игрушка не должна быть в употреблении, должны быть сохранены её товарный вид, потребительские свойства, пломбы и фабричные ярлыки.\n\nЕсли игрушка была испорчена после приобретения, вернуть её нельзя. Брак товара.",
   },
   {
-    title: "Как можно оплатить?",
-    description: "Текст вопросы и ответы",
+    title: "Есть ли гарантия на игрушки?",
+    description:
+      "Да, гарантия составляет 1 год с момента приобретения игрушки.",
   },
   {
-    title: "Есть ли гарантия?",
-    description: "Текст вопросы и ответы",
+    title: "Какие способы оплаты доступны?",
+    description:
+      "Мы принимаем оплату картой онлайн и оплату при получении (наличными или картой курьеру).",
+  },
+  {
+    title: "Как долго доставляется заказ?",
+    description:
+      "Доставка по Москве осуществляется в течение 1-2 дней. В другие регионы России - 3-7 дней в зависимости от удаленности.",
+  },
+  {
+    title: "Можно ли забрать заказ самовывозом?",
+    description:
+      "Да, самовывоз доступен из нашего пункта выдачи. После оформления заказа мы свяжемся с вами для уточнения времени получения.",
+  },
+  {
+    title: "Что делать, если товар пришёл поврежденным?",
+    description:
+      "Если товар получен в поврежденном виде, незамедлительно свяжитесь с нами. Мы заменим товар или вернём деньги.",
   },
 ];
 
@@ -107,6 +129,7 @@ const Page = () => {
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
+  const [similarProducts, setSimilarProducts] = useState<ProductType[]>([]);
 
   // Используем ваш Zustand стор
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -117,6 +140,18 @@ const Page = () => {
       try {
         const productData = await getProductById(params.id);
         setProduct(productData);
+
+        // Fetch similar products based on the first category in breadcrumbs
+        if (productData.breadcrumbs.length > 0) {
+          const similar = await getProductsByCategory(
+            productData.breadcrumbs[0]
+          );
+          // Filter out current product and limit to 4 similar products
+          const filteredSimilar = similar
+            .filter((p: ProductType) => p.id !== productData.id)
+            .slice(0, 4);
+          setSimilarProducts(filteredSimilar);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки");
       } finally {
@@ -172,9 +207,9 @@ const Page = () => {
   return (
     <main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >
@@ -447,11 +482,6 @@ const Page = () => {
                           className="flex justify-between items-center"
                           key={index}
                           variants={itemVariants}
-                          whileHover={{
-                            x: 5,
-                            backgroundColor: "rgba(0,0,0,0.02)",
-                          }}
-                          transition={{ duration: 0.2 }}
                         >
                           <Descriptor className="text-foreground/20">
                             {char.key}
@@ -661,15 +691,18 @@ const Page = () => {
                 </motion.div>
               </div>
               {/* Рекомендуемые товары пока отключены */}
-              {/* <motion.div variants={cardVariants} className="col-span-3">
+              <motion.div
+                variants={cardVariants}
+                className="col-span-3 mt-[40px]"
+              >
                 <ProductSlider
                   title="Вам может понравиться"
-                  products={[]}
+                  products={similarProducts}
                   showViewAll={false}
                   viewAllLink="/catalogue"
                   viewAllText="смотреть все"
                 />
-              </motion.div> */}
+              </motion.div>
             </div>
           </div>
         </div>

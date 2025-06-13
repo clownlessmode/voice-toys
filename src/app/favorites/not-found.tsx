@@ -8,7 +8,7 @@ import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-export default function Success() {
+export default function NotFound() {
   return (
     <main
       className={cn(
@@ -25,8 +25,8 @@ export default function Success() {
           "sm:p-[48px] sm:gap-[48px]",
           "w-full bg-cover bg-center lg:bg-right",
           "bg-background w-full flex flex-col items-center min-h-[85vh] lg:min-h-[600px] ",
-          "bg-[url('/cart/mobile-bg.png')]",
-          "lg:bg-[url('/cart/bg.png')]",
+          "bg-[url('/favorites/mobile-bg.png')]",
+          "lg:bg-[url('/favorites/bg.png')]",
           "lg:items-start lg:justify-center"
         )}
       >
@@ -36,10 +36,11 @@ export default function Success() {
             "flex flex-col items-center lg:items-start"
           )}
         >
-          <H1 className="text-center lg:text-left">Ура! Ваш заказ оформлен</H1>
+          <H1 className="text-center lg:text-left">
+            Нажимайте на сердечки возле игрушек — и они появятся здесь.{" "}
+          </H1>
           <T1 className="text-center  lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
-            Мы уже начали собирать игрушки.Скоро вы получите SMS с информацией о
-            доставке.
+            Загляните в каталог — там много интересного!
           </T1>
         </div>
         <Link
@@ -47,7 +48,7 @@ export default function Success() {
           className="w-full flex justify-center lg:justify-start"
         >
           <Button1 className="max-w-[560px] justify-center w-full!">
-            Вернуться на главную
+            Перейти в каталог
           </Button1>
         </Link>
       </div>

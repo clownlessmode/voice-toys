@@ -227,9 +227,9 @@ const CatalogueContent = () => {
   return (
     <motion.main
       className={cn(
-        "px-[10px] gap-[80px]",
-        "xl:px-[50px] xl:gap-[100px]",
-        "2xl:px-[100px] 2xl:gap-[150px]",
+        "px-[10px] gap-[40px]",
+        "xl:px-[50px] xl:gap-[50px]",
+        "2xl:px-[100px] 2xl:gap-[60px]",
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
       initial={{ opacity: 0 }}
@@ -275,7 +275,7 @@ const CatalogueContent = () => {
             variants={itemVariants}
           >
             {/* Активные фильтры */}
-            <div className="flex flex-wrap gap-[12px] items-center">
+            <div className="flex flex-wrap gap-[12px] items-center max-w-[600px]">
               {/* Поисковый запрос */}
               <AnimatePresence>
                 {searchQuery && (
@@ -408,7 +408,7 @@ const CatalogueContent = () => {
                 ))
               ) : (
                 <motion.div
-                  className="col-span-2 text-center py-[50px]"
+                  className="w-full flex justify-center col-span-4 mt-[15vh] text-center py-[50px]"
                   variants={itemVariants}
                 >
                   <motion.div
