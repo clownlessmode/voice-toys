@@ -25,8 +25,8 @@ export default function Success() {
           "sm:p-[48px] sm:gap-[48px]",
           "w-full bg-cover bg-center lg:bg-right",
           "bg-background w-full flex flex-col items-center min-h-[85vh] lg:min-h-[600px] ",
-          "bg-[url('/cart/mobile-bg.png')]",
-          "lg:bg-[url('/cart/bg.png')]",
+          "bg-[url('/success/mobile-bg.png')]",
+          "lg:bg-[url('/success/bg.png')]",
           "lg:items-start lg:justify-center"
         )}
       >
