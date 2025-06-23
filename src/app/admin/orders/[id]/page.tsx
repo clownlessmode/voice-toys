@@ -19,6 +19,109 @@ import {
   getStatusLabel,
 } from "@/lib/order-utils";
 
+// Компонент для печати заказа
+const PrintableOrder = ({ order }: { order: Order }) => (
+  <div className="print-only">
+    <div className="max-w-2xl mx-auto p-8 bg-white">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold mb-2">ЗАКАЗ {order.orderNumber}</h1>
+        <p className="text-gray-600">
+          Дата создания: {formatOrderDate(order.createdAt)}
+        </p>
+        <p className="text-gray-600">Статус: {getStatusLabel(order.status)}</p>
+      </div>
+
+      {/* Customer Info */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
+          Информация о клиенте
+        </h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">Имя:</p>
+            <p className="font-medium">{order.customerName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">Телефон:</p>
+            <p className="font-medium">{order.customerPhone}</p>
+          </div>
+          {order.customerEmail && (
+            <div className="col-span-2">
+              <p className="text-sm text-gray-600">Email:</p>
+              <p className="font-medium">{order.customerEmail}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delivery Info */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">Доставка</h2>
+        <div>
+          <p className="text-sm text-gray-600">Тип доставки:</p>
+          <p className="font-medium mb-2">
+            {order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}
+          </p>
+          {order.deliveryAddress && (
+            <>
+              <p className="text-sm text-gray-600">Адрес:</p>
+              <p className="font-medium">{order.deliveryAddress}</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Order Items */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
+          Товары в заказе
+        </h2>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left py-2">Наименование</th>
+              <th className="text-center py-2">Кол-во</th>
+              <th className="text-right py-2">Цена</th>
+              <th className="text-right py-2">Сумма</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.items.map((item) => (
+              <tr key={item.id} className="border-b">
+                <td className="py-2">{item.product.name}</td>
+                <td className="text-center py-2">{item.quantity}</td>
+                <td className="text-right py-2">
+                  {formatCurrency(item.price, order.currency)}
+                </td>
+                <td className="text-right py-2">
+                  {formatCurrency(item.price * item.quantity, order.currency)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 font-semibold">
+              <td colSpan={3} className="text-right py-2">
+                ИТОГО:
+              </td>
+              <td className="text-right py-2">
+                {formatCurrency(order.totalAmount, order.currency)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-sm text-gray-600 mt-8">
+        <p>Спасибо за ваш заказ!</p>
+        <p>При вопросах обращайтесь по телефону: +7 (924) 338-23-31</p>
+      </div>
+    </div>
+  </div>
+);
+
 export default function OrderDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -83,6 +186,86 @@ export default function OrderDetailsPage() {
     }
   };
 
+  const handlePrint = () => {
+    // Создаем новое окно для печати
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    // Получаем HTML для печати
+    const printContent = document.querySelector(".print-only")?.outerHTML;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Заказ ${order?.orderNumber}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              margin: 0;
+              padding: 20px;
+              color: #000;
+            }
+            .print-only {
+              display: block !important;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            .border-b {
+              border-bottom: 1px solid #ddd;
+            }
+            .border-t-2 {
+              border-top: 2px solid #000;
+            }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .font-semibold { font-weight: 600; }
+            .font-bold { font-weight: bold; }
+            .text-gray-600 { color: #666; }
+            .mb-2 { margin-bottom: 8px; }
+            .mb-3 { margin-bottom: 12px; }
+            .mb-6 { margin-bottom: 24px; }
+            .mb-8 { margin-bottom: 32px; }
+            .mt-8 { margin-top: 32px; }
+            .py-2 { padding-top: 8px; padding-bottom: 8px; }
+            .pb-2 { padding-bottom: 8px; }
+            .grid { display: grid; }
+            .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+            .gap-4 { gap: 16px; }
+            .col-span-2 { grid-column: span 2; }
+            @media print {
+              body { margin: 0; padding: 10px; }
+              .print-only { display: block !important; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    // Печатаем после загрузки
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -132,6 +315,13 @@ export default function OrderDetailsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {/* Скрытый компонент для печати */}
+      {order && (
+        <div className="print-only hidden">
+          <PrintableOrder order={order} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -348,7 +538,7 @@ export default function OrderDetailsPage() {
               </Link>
 
               <button
-                onClick={() => window.print()}
+                onClick={handlePrint}
                 className="flex items-center gap-2 w-full px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <Package className="w-4 h-4" />

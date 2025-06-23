@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import FileUpload, {
+  UploadedFile,
+  ImagePreview,
+} from "@/components/ui/components/file-upload";
 
 interface ProductForm {
   name: string;
@@ -24,6 +28,8 @@ interface ProductForm {
 export default function NewProduct() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadError, setUploadError] = useState<string>("");
   const [form, setForm] = useState<ProductForm>({
     name: "",
     breadcrumbs: ["Главная", "Каталог", "Интерактивные игрушки", ""],
@@ -47,10 +53,16 @@ export default function NewProduct() {
 
     try {
       // Обновляем последний элемент breadcrumbs названием продукта
+      // Собираем URL изображений из загруженных файлов и введенных URL
+      const allImages = [
+        ...uploadedFiles.map((file) => file.url),
+        ...form.images.filter((img) => img.trim() !== ""),
+      ];
+
       const updatedForm = {
         ...form,
         breadcrumbs: [...form.breadcrumbs.slice(0, -1), form.name],
-        images: form.images.filter((img) => img.trim() !== ""),
+        images: allImages,
         characteristics: form.characteristics.filter(
           (char) => char.key.trim() !== "" && char.value.trim() !== ""
         ),
@@ -309,38 +321,90 @@ export default function NewProduct() {
 
         {/* Images */}
         <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Изображения</h3>
-            <button
-              type="button"
-              onClick={addImage}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить изображение
-            </button>
-          </div>
-          <div className="space-y-4">
-            {form.images.map((image, index) => (
-              <div key={index} className="flex items-center space-x-4">
-                <input
-                  type="url"
-                  placeholder="URL изображения"
-                  value={image}
-                  onChange={(e) => updateImage(index, e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                />
-                {form.images.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="p-2 text-red-600 hover:text-red-900"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Изображения
+          </h3>
+
+          {/* Загрузка файлов */}
+          <div className="mb-6">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">
+              Загрузить изображения с компьютера
+            </h4>
+            <FileUpload
+              onUpload={(files) => {
+                setUploadedFiles((prev) => [...prev, ...files]);
+                setUploadError("");
+              }}
+              onError={(error) => setUploadError(error)}
+              folder="products"
+              maxFiles={10}
+              resize={true}
+              width={1200}
+              height={1200}
+              quality={90}
+            />
+
+            {uploadError && (
+              <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                {uploadError}
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Превью загруженных изображений */}
+          {uploadedFiles.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Загруженные изображения ({uploadedFiles.length})
+              </h4>
+              <ImagePreview
+                files={uploadedFiles}
+                onRemove={(index) => {
+                  setUploadedFiles((prev) =>
+                    prev.filter((_, i) => i !== index)
+                  );
+                }}
+              />
+            </div>
+          )}
+
+          {/* Ручной ввод URL */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-medium text-gray-700">
+                Или добавить URL изображений
+              </h4>
+              <button
+                type="button"
+                onClick={addImage}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить URL
+              </button>
+            </div>
+            <div className="space-y-4">
+              {form.images.map((image, index) => (
+                <div key={index} className="flex items-center space-x-4">
+                  <input
+                    type="url"
+                    placeholder="URL изображения"
+                    value={image}
+                    onChange={(e) => updateImage(index, e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+                  />
+                  {form.images.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="p-2 text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

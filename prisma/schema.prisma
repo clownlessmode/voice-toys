@@ -77,7 +77,7 @@ model OrderItem {
   price     Float   // Цена на момент заказа
   
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("order_items")
 }
