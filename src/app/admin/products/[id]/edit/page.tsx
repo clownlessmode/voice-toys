@@ -7,8 +7,8 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { getProductById } from "@/components/entities/product";
 import FileUpload, {
   UploadedFile,
-  ImagePreview,
 } from "@/components/ui/components/file-upload";
+import { ImageGallery } from "@/components/ui/components/image-gallery";
 
 interface ProductForm {
   name: string;
@@ -412,7 +412,7 @@ export default function EditProduct() {
               resize={true}
               width={1200}
               height={1200}
-              quality={90}
+              quality={100}
             />
 
             {uploadError && (
@@ -422,95 +422,45 @@ export default function EditProduct() {
             )}
           </div>
 
-          {/* Превью загруженных изображений */}
-          {uploadedFiles.length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">
-                Загруженные изображения ({uploadedFiles.length})
-              </h4>
-              <ImagePreview
-                files={uploadedFiles}
-                onRemove={(index) => {
+          {/* Галерея изображений */}
+          <div>
+            <ImageGallery
+              images={[
+                // Загруженные файлы
+                ...uploadedFiles.map((file) => ({
+                  url: file.url,
+                  isUploaded: true,
+                  originalName: file.originalName,
+                })),
+                // Ручные URL
+                ...form.images.map((url) => ({
+                  url,
+                  isUploaded: false,
+                })),
+              ]}
+              onAdd={addImage}
+              onRemove={(index) => {
+                if (index < uploadedFiles.length) {
+                  // Удаляем загруженный файл
                   setUploadedFiles((prev) =>
                     prev.filter((_, i) => i !== index)
                   );
-                }}
-              />
-            </div>
-          )}
-
-          {/* Ручной ввод URL */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-medium text-gray-700">
-                Или добавить URL изображений
-              </h4>
-              <button
-                type="button"
-                onClick={addImage}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить URL
-              </button>
-            </div>
-            <div className="space-y-4">
-              {form.images.map((image, index) => (
-                <div key={index} className="flex items-center space-x-4">
-                  <input
-                    type="url"
-                    placeholder="URL изображения"
-                    value={image}
-                    onChange={(e) => updateImage(index, e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                  />
-                  {form.images.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="p-2 text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Изображения</h3>
-            <button
-              type="button"
-              onClick={addImage}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Добавить изображение
-            </button>
-          </div>
-          <div className="space-y-4">
-            {form.images.map((image, index) => (
-              <div key={index} className="flex items-center space-x-4">
-                <input
-                  type="url"
-                  placeholder="URL изображения"
-                  value={image}
-                  onChange={(e) => updateImage(index, e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                />
-                {form.images.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="p-2 text-red-600 hover:text-red-900"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+                } else {
+                  // Удаляем ручной URL
+                  const urlIndex = index - uploadedFiles.length;
+                  removeImage(urlIndex);
+                }
+              }}
+              onUpdate={(index, url) => {
+                if (index >= uploadedFiles.length) {
+                  // Обновляем ручной URL
+                  const urlIndex = index - uploadedFiles.length;
+                  updateImage(urlIndex, url);
+                }
+              }}
+              title="Все изображения товара"
+              allowManualUrls={true}
+            />
           </div>
         </div>
 

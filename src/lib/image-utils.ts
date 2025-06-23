@@ -16,7 +16,7 @@ export class ImageProcessor {
     buffer: Buffer,
     options: ImageProcessingOptions = {}
   ): Promise<Buffer> {
-    const { width, height, quality = 90, fit = "cover" } = options;
+    const { width, height, quality = 100, fit = "cover" } = options; // Максимальное качество без сжатия
 
     let sharpInstance = sharp(buffer);
 
@@ -25,9 +25,14 @@ export class ImageProcessor {
       sharpInstance = sharpInstance.resize(width, height, { fit });
     }
 
-    // Конвертируем в WebP
+    // Конвертируем в WebP с улучшенными настройками
     return sharpInstance
-      .webp({ quality, lossless: quality === 100 })
+      .webp({
+        quality,
+        lossless: quality === 100,
+        effort: 6, // Максимальное усилие для лучшего качества
+        smartSubsample: false, // Отключаем субсэмплинг для лучшего качества
+      })
       .toBuffer();
   }
 

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const resize = formData.get("resize") === "true";
     const width = parseInt(formData.get("width") as string) || undefined;
     const height = parseInt(formData.get("height") as string) || undefined;
-    const quality = parseInt(formData.get("quality") as string) || 90;
+    const quality = parseInt(formData.get("quality") as string) || 100;
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });

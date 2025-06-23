@@ -59,7 +59,7 @@ export class S3Storage {
         Body: buffer,
         ContentType: contentType,
         Metadata: metadata,
-        ACL: "public-read", // Делаем файл публично доступным
+        // ACL: "public-read", // Убираем ACL для Selectel
       });
 
       await this.client.send(command);
