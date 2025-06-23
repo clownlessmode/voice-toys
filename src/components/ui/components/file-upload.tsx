@@ -43,7 +43,7 @@ export default function FileUpload({
   resize = false,
   width,
   height,
-  quality = 90,
+  quality = 100,
   accept = "image/*",
   multiple = true,
   className,

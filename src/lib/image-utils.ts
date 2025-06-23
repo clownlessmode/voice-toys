@@ -65,7 +65,7 @@ export class ImageProcessor {
   static async createThumbnail(
     buffer: Buffer,
     size: number = 300,
-    quality: number = 80
+    quality: number = 100
   ): Promise<Buffer> {
     return sharp(buffer)
       .resize(size, size, { fit: "cover" })
@@ -119,7 +119,7 @@ export class ImageProcessor {
     for (const size of sizes) {
       const processedBuffer = await sharp(buffer)
         .resize(size.width, size.height, { fit: "cover" })
-        .webp({ quality: 90 })
+        .webp({ quality: 100 })
         .toBuffer();
 
       results.push({

@@ -157,7 +157,7 @@ export default function Product({ product }: { product: ProductType }) {
           transition={{ delay: 0.3, duration: 0.3 }}
         >
           <motion.div
-            className="bg-background rounded-full size-[32px] flex items-center justify-center"
+            className="bg-background rounded-full h-[32px] px-4 w-fit flex items-center justify-center"
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.2 }}
           >
