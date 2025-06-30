@@ -24,6 +24,8 @@ model Product {
   description       String
   characteristics   ProductCharacteristic[]
   orderItems        OrderItem[]
+  categories        String            // JSON array of category strings
+  ageGroups         String            // JSON array of age group strings
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 

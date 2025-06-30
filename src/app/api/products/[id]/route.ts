@@ -88,13 +88,15 @@ export async function PUT(
         returnDays: body.returnDays || 14,
         returnDetails: body.returnDetails,
         description: body.description,
+        categories: JSON.stringify(body.categories || []),
+        ageGroups: JSON.stringify(body.ageGroups || []),
         characteristics: {
           create: body.characteristics?.map((char) => ({
             key: char.key,
             value: char.value,
           })),
         },
-      },
+      } as any,
       include: {
         characteristics: true,
       },
@@ -157,6 +159,10 @@ export async function PATCH(
       updateData.returnDetails = body.returnDetails;
     if (body.description !== undefined)
       updateData.description = body.description;
+    if (body.categories !== undefined)
+      updateData.categories = JSON.stringify(body.categories);
+    if (body.ageGroups !== undefined)
+      updateData.ageGroups = JSON.stringify(body.ageGroups);
 
     // Если обновляются характеристики, удаляем старые и создаем новые
     if (body.characteristics !== undefined) {
@@ -176,7 +182,7 @@ export async function PATCH(
 
     const product = await prisma.product.update({
       where: { id },
-      data: updateData,
+      data: updateData as any,
       include: {
         characteristics: true,
       },

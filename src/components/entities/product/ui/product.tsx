@@ -11,6 +11,7 @@ import { useCart } from "@/app/cart/use-cart";
 import { useFavorites } from "@/store/favoritesStore";
 import { useState } from "react";
 import Link from "next/link";
+import { formatAgeGroups } from "@/lib/age-utils";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -74,11 +75,22 @@ export default function Product({ product }: { product: ProductType }) {
 
   const isProductFavorite = isFavorite(product.id);
 
-  // Получаем возраст из характеристик
-  const ageCharacteristic = product.characteristics?.find(
-    (char) => char.key === "Возраст"
-  );
-  const age = ageCharacteristic?.value || "0+";
+  // Получаем возраст из новых полей ageGroups или fallback к характеристикам
+  let age = "0+";
+
+  // Сначала пробуем новое поле ageGroups
+  if (product.ageGroups && product.ageGroups.length > 0) {
+    age = formatAgeGroups(product.ageGroups);
+  } else {
+    // Fallback к старым характеристикам
+    const ageCharacteristic = product.characteristics?.find(
+      (char) => char.key === "Возраст"
+    );
+    if (ageCharacteristic?.value) {
+      // Проверяем, не является ли значение техническим форматом
+      age = formatAgeGroups([ageCharacteristic.value]);
+    }
+  }
 
   return (
     <Link href={`/catalogue/${product.id}`} className="w-full">
@@ -97,8 +109,9 @@ export default function Product({ product }: { product: ProductType }) {
           <Image
             src={product.images[0]}
             alt={product.name}
-            width={100}
-            height={100}
+            width={100 * 10}
+            height={100 * 10}
+            quality={100}
             className="w-full h-full object-cover aspect-square rounded-[20px] overflow-hidden"
           />
         </motion.div>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -32,9 +33,13 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // Фильтр по типу (через breadcrumbs)
+    // Фильтр по типу (через новое поле categories или legacy breadcrumbs)
     if (type) {
-      whereClause.breadcrumbs = { contains: type };
+      whereClause.OR = whereClause.OR || [];
+      whereClause.OR.push(
+        { categories: { contains: type } },
+        { breadcrumbs: { contains: type } }
+      );
     }
 
     // Фильтр по избранным
@@ -61,9 +66,20 @@ export async function GET(request: NextRequest) {
 
     let filteredProducts = products;
 
-    // Фильтрация по возрасту (делаем на уровне приложения, так как это сложная логика)
+    // Фильтрация по возрасту (сначала проверяем новое поле, потом legacy характеристики)
     if (age) {
       filteredProducts = products.filter((product) => {
+        // Проверяем новое поле ageGroups
+        try {
+          const ageGroups = JSON.parse((product as any).ageGroups || "[]");
+          if (ageGroups.includes(age)) {
+            return true;
+          }
+        } catch {
+          // Игнорируем ошибки парсинга JSON
+        }
+
+        // Fallback к старой логике через характеристики
         const ageCharacteristic = product.characteristics.find(
           (char) => char.key === "Возраст"
         );
@@ -151,13 +167,15 @@ export async function POST(request: NextRequest) {
         returnDays: body.returnDays || 14,
         returnDetails: body.returnDetails,
         description: body.description,
+        categories: JSON.stringify(body.categories || []),
+        ageGroups: JSON.stringify(body.ageGroups || []),
         characteristics: {
           create: body.characteristics.map((char) => ({
             key: char.key,
             value: char.value,
           })),
         },
-      },
+      } as any,
       include: {
         characteristics: true,
       },

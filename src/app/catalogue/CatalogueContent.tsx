@@ -18,19 +18,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
-const ageMap: { [key: string]: string } = {
-  "6м-2года": "6 м. – 2 года",
-  "3-4года": "3 – 4 года",
-  "5-7лет": "5 – 7 лет",
-  "8-10лет": "8 – 10 лет",
-};
-
-const ageMapReverse: { [key: string]: string } = {
-  "6 м. – 2 года": "6м-2года",
-  "3 – 4 года": "3-4года",
-  "5 – 7 лет": "5-7лет",
-  "8 – 10 лет": "8-10лет",
-};
+import { ageMap, ageMapReverse } from "@/lib/age-utils";
 
 const CatalogueContent = () => {
   const searchParams = useSearchParams();

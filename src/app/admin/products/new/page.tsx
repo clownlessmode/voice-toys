@@ -24,6 +24,8 @@ interface ProductForm {
   returnDetails: string;
   description: string;
   characteristics: { key: string; value: string }[];
+  categories: string[];
+  ageGroups: string[];
 }
 
 export default function NewProduct() {
@@ -46,10 +48,19 @@ export default function NewProduct() {
       "Можно обменять или вернуть в течение 14 дней с момента покупки",
     description: "",
     characteristics: [{ key: "", value: "" }],
+    categories: [],
+    ageGroups: [],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Валидация возрастных групп
+    if (form.ageGroups.length === 0) {
+      alert("Выберите хотя бы одну возрастную группу");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -171,71 +182,109 @@ export default function NewProduct() {
               />
             </div>
 
+            {/* Categories */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Категория
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Категории
               </label>
-              <select
-                value={form.breadcrumbs[2]}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    breadcrumbs: [
-                      form.breadcrumbs[0],
-                      form.breadcrumbs[1],
-                      e.target.value,
-                      form.breadcrumbs[3],
-                    ],
-                  })
-                }
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="Интерактивные игрушки">
-                  Интерактивные игрушки
-                </option>
-                <option value="Развивающие игрушки">Развивающие игрушки</option>
-                <option value="Игрушки антистресс">Игрушки антистресс</option>
-                <option value="Игрушечный транспорт">
-                  Игрушечный транспорт
-                </option>
-                <option value="Радиоуправляемые игрушки">
-                  Радиоуправляемые игрушки
-                </option>
-                <option value="Обучающие игрушки">Обучающие игрушки</option>
-                <option value="Настольные игры">Настольные игры</option>
-              </select>
+              <div className="space-y-2">
+                {[
+                  "Интерактивные игрушки",
+                  "Развивающие игрушки",
+                  "Игрушки антистресс",
+                  "Игрушечный транспорт",
+                  "Радиоуправляемые игрушки",
+                  "Обучающие игрушки",
+                  "Настольные игры",
+                ].map((category) => (
+                  <label key={category} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.categories.includes(category)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setForm({
+                            ...form,
+                            categories: [...form.categories, category],
+                            breadcrumbs: [
+                              form.breadcrumbs[0],
+                              form.breadcrumbs[1],
+                              form.categories.length === 0
+                                ? category
+                                : form.breadcrumbs[2],
+                              form.breadcrumbs[3],
+                            ],
+                          });
+                        } else {
+                          const newCategories = form.categories.filter(
+                            (c) => c !== category
+                          );
+                          setForm({
+                            ...form,
+                            categories: newCategories,
+                            breadcrumbs: [
+                              form.breadcrumbs[0],
+                              form.breadcrumbs[1],
+                              newCategories.length > 0
+                                ? newCategories[0]
+                                : "Интерактивные игрушки",
+                              form.breadcrumbs[3],
+                            ],
+                          });
+                        }
+                      }}
+                      className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">{category}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
+            {/* Age Groups */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Возрастная группа *
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Возрастные группы *
               </label>
-              <select
-                required
-                value={
-                  form.characteristics.find((char) => char.key === "Возраст")
-                    ?.value || ""
-                }
-                onChange={(e) => {
-                  const newCharacteristics = form.characteristics.filter(
-                    (char) => char.key !== "Возраст"
-                  );
-                  if (e.target.value) {
-                    newCharacteristics.push({
-                      key: "Возраст",
-                      value: e.target.value,
-                    });
-                  }
-                  setForm({ ...form, characteristics: newCharacteristics });
-                }}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="">Выберите возрастную группу</option>
-                <option value="6м-2года">6 м. – 2 года</option>
-                <option value="3-4года">3 – 4 года</option>
-                <option value="5-7лет">5 – 7 лет</option>
-                <option value="8-10лет">8 – 10 лет</option>
-              </select>
+              <div className="space-y-2">
+                {[
+                  { label: "6 м. – 2 года", value: "6м-2года" },
+                  { label: "3 – 4 года", value: "3-4года" },
+                  { label: "5 – 7 лет", value: "5-7лет" },
+                  { label: "8 – 10 лет", value: "8-10лет" },
+                ].map((ageGroup) => (
+                  <label key={ageGroup.value} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={form.ageGroups.includes(ageGroup.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setForm({
+                            ...form,
+                            ageGroups: [...form.ageGroups, ageGroup.value],
+                          });
+                        } else {
+                          setForm({
+                            ...form,
+                            ageGroups: form.ageGroups.filter(
+                              (ag) => ag !== ageGroup.value
+                            ),
+                          });
+                        }
+                      }}
+                      className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">
+                      {ageGroup.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {form.ageGroups.length === 0 && (
+                <p className="text-sm text-red-500 mt-1">
+                  Выберите хотя бы одну возрастную группу
+                </p>
+              )}
             </div>
 
             <div>

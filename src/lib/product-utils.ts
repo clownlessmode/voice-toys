@@ -27,6 +27,8 @@ export function transformProductFromDB(dbProduct: any): Product {
         key: char.key,
         value: char.value,
       })) || [],
+    categories: dbProduct.categories ? JSON.parse(dbProduct.categories) : [],
+    ageGroups: dbProduct.ageGroups ? JSON.parse(dbProduct.ageGroups) : [],
     createdAt: dbProduct.createdAt?.toISOString(),
     updatedAt: dbProduct.updatedAt?.toISOString(),
   };

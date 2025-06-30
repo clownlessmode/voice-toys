@@ -9,6 +9,8 @@ export interface Product {
   returnPolicy: ReturnPolicy;
   description: string;
   characteristics: Characteristic[];
+  categories: string[];
+  ageGroups: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -50,6 +52,8 @@ export interface CreateProductRequest {
   returnDetails: string;
   description: string;
   characteristics: Characteristic[];
+  categories?: string[];
+  ageGroups?: string[];
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {
