@@ -244,14 +244,14 @@ const Page = () => {
                   className="flex flex-col gap-[10px] w-full lg:flex-row-reverse lg:justify-end lg:items-end lg:flex lg:h-fit!"
                   variants={itemVariants}
                 >
-                  <div className="flex flex-col lg:flex-row-reverse gap-[10px] lg:gap-[24px] w-full lg:h-fit! lg:max-h-[640px] lg:overflow-hidden">
-                    {/* Основная картинка */}
+                  {/* <div className="flex flex-col lg:flex-row-reverse gap-[10px] lg:gap-[24px] w-full lg:h-fit! lg:overflow-hidden">
+
                     <motion.div
                       variants={imageVariants}
                       className="w-full lg:flex-1 aspect-square lg:h-fit!"
                     >
                       <Image
-                        className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit lg:max-h-[640px]"
+                        className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit "
                         src={product.images[0]}
                         alt={product.name}
                         width={1200}
@@ -259,7 +259,7 @@ const Page = () => {
                       />
                     </motion.div>
 
-                    {/* Маленькие картинки */}
+
                     <motion.div
                       className="flex flex-row gap-[10px] flex-nowrap lg:flex-col lg:w-[120px] lg:h-full lg:gap-[10px]"
                       variants={containerVariants}
@@ -282,6 +282,59 @@ const Page = () => {
                         </motion.div>
                       ))}
                     </motion.div>
+                  </div> */}
+
+                  <div className="grid grid-cols-5 grid-rows-6 gap-4 w-full lg:grid-cols-6 lg:grid-rows-5">
+                    {/* Большая картинка */}
+                    <motion.div
+                      variants={imageVariants}
+                      className="col-span-5 row-span-5 col-start-1 row-start-1 aspect-square lg:col-span-5 lg:row-span-5 lg:col-start-2 lg:row-start-1"
+                    >
+                      <Image
+                        className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit "
+                        src={product.images[0]}
+                        alt={product.name}
+                        width={1200}
+                        height={1200}
+                      />
+                    </motion.div>
+
+                    {/* Маленькие картинки */}
+                    {product.images.slice(1, 6).map((image, index) => {
+                      const mobilePositions = [
+                        "col-start-1 row-start-6", // для мобильных все в 6-й строке
+                        "col-start-2 row-start-6",
+                        "col-start-3 row-start-6",
+                        "col-start-4 row-start-6",
+                        "col-start-5 row-start-6",
+                      ];
+
+                      const desktopPositions = [
+                        "lg:col-start-1 lg:row-start-1", // для десктопа в первой колонке
+                        "lg:col-start-1 lg:row-start-2",
+                        "lg:col-start-1 lg:row-start-3",
+                        "lg:col-start-1 lg:row-start-4",
+                        "lg:col-start-1 lg:row-start-5",
+                      ];
+
+                      return (
+                        <motion.div
+                          key={index}
+                          variants={imageVariants}
+                          whileHover={{ scale: 1.02 }}
+                          transition={{ duration: 0.2 }}
+                          className={`aspect-square ${mobilePositions[index]} ${desktopPositions[index]}`}
+                        >
+                          <Image
+                            className="aspect-square object-cover rounded-2xl w-full h-full"
+                            src={image}
+                            alt={`image ${index + 1}`}
+                            width={1200}
+                            height={1200}
+                          />
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </motion.div>
 
