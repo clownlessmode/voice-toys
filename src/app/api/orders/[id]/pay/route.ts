@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { transformOrderFromDB } from "@/lib/order-utils";
+import { verifyCallback } from "@/lib/modulbank";
+import { sendOrderNotification } from "@/lib/telegram";
 
 // POST - Оплата заказа (webhook для платежной системы)
 export async function POST(
@@ -9,6 +11,64 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const contentType = request.headers.get("content-type");
+    let callbackData: Record<string, string> = {};
+
+    // Обработка разных типов запросов
+    if (contentType?.includes("application/json")) {
+      // JSON запрос от success страницы
+      const jsonData = await request.json();
+      console.log("📥 JSON payment data:", jsonData);
+
+      if (jsonData.source === "success_page" && jsonData.transaction_id) {
+        // Валидация данных от success страницы
+        if (jsonData.state !== "COMPLETE") {
+          return NextResponse.json(
+            { error: "Payment not completed" },
+            { status: 400 }
+          );
+        }
+        // Для запросов от success страницы не проверяем подпись
+        callbackData = jsonData;
+      } else {
+        return NextResponse.json(
+          { error: "Invalid payment data" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // FormData запрос от Modulbank webhook
+      const formData = await request.formData();
+
+      // Преобразуем FormData в объект
+      for (const [key, value] of formData.entries()) {
+        callbackData[key] = value.toString();
+      }
+
+      console.log("📥 Form payment data:", callbackData);
+
+      // Если есть данные callback от Modulbank, проверяем подпись
+      if (Object.keys(callbackData).length > 0 && callbackData.signature) {
+        const isValidSignature = verifyCallback(callbackData);
+
+        if (!isValidSignature) {
+          console.error("Invalid Modulbank callback signature", callbackData);
+          return NextResponse.json(
+            { error: "Invalid signature" },
+            { status: 400 }
+          );
+        }
+
+        // Проверяем статус платежа от Modulbank
+        if (callbackData.state !== "COMPLETE") {
+          console.log("Payment not completed", callbackData);
+          return NextResponse.json(
+            { error: "Payment not completed" },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     // Проверяем существование заказа
     const existingOrder = await prisma.order.findUnique({
@@ -59,6 +119,14 @@ export async function POST(
     });
 
     const transformedOrder = transformOrderFromDB(paidOrder);
+
+    // Отправляем уведомление в Telegram
+    try {
+      await sendOrderNotification(transformedOrder, "paid");
+    } catch (error) {
+      console.error("Error sending Telegram notification:", error);
+      // Не блокируем обработку платежа из-за ошибки уведомления
+    }
 
     return NextResponse.json({
       success: true,

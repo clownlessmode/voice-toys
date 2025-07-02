@@ -7,8 +7,64 @@ import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Success() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const [paymentStatus, setPaymentStatus] = useState<
+    "processing" | "success" | "error"
+  >("processing");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const processPayment = async () => {
+      const orderId = params.id as string;
+      const transactionId = searchParams.get("transaction_id");
+
+      console.log("🎯 Processing payment success:", { orderId, transactionId });
+
+      if (!transactionId) {
+        console.error("❌ No transaction_id found in URL");
+        setPaymentStatus("error");
+        setErrorMessage("Отсутствует ID транзакции");
+        return;
+      }
+
+      try {
+        // Отправляем запрос для подтверждения оплаты
+        const response = await fetch(`/api/orders/${orderId}/pay`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            transaction_id: transactionId,
+            state: "COMPLETE",
+            source: "success_page",
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          console.log("✅ Payment confirmed successfully");
+          setPaymentStatus("success");
+        } else {
+          console.error("❌ Payment confirmation failed:", data);
+          setPaymentStatus("error");
+          setErrorMessage(data.error || "Ошибка подтверждения оплаты");
+        }
+      } catch (error) {
+        console.error("❌ Error confirming payment:", error);
+        setPaymentStatus("error");
+        setErrorMessage("Ошибка сети при подтверждении оплаты");
+      }
+    };
+
+    processPayment();
+  }, [params.id, searchParams]);
   return (
     <main
       className={cn(
@@ -36,11 +92,38 @@ export default function Success() {
             "flex flex-col items-center lg:items-start"
           )}
         >
-          <H1 className="text-center lg:text-left">Ура! Ваш заказ оформлен</H1>
-          <T1 className="text-center  lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
-            Мы уже начали собирать игрушки.Скоро вы получите SMS с информацией о
-            доставке.
-          </T1>
+          {paymentStatus === "processing" && (
+            <>
+              <H1 className="text-center lg:text-left">
+                Подтверждаем оплату...
+              </H1>
+              <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
+                Пожалуйста, подождите. Мы проверяем статус вашего платежа.
+              </T1>
+            </>
+          )}
+
+          {paymentStatus === "success" && (
+            <>
+              <H1 className="text-center lg:text-left">
+                Ура! Ваш заказ оплачен
+              </H1>
+              <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
+                Платеж успешно обработан. Мы уже начали собирать игрушки. Скоро
+                вы получите SMS с информацией о доставке.
+              </T1>
+            </>
+          )}
+
+          {paymentStatus === "error" && (
+            <>
+              <H1 className="text-center lg:text-left">Ошибка оплаты</H1>
+              <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
+                {errorMessage ||
+                  "Произошла ошибка при подтверждении оплаты. Пожалуйста, свяжитесь с поддержкой."}
+              </T1>
+            </>
+          )}
         </div>
         <Link
           href={"/catalogue"}

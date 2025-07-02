@@ -140,10 +140,10 @@ const OrderPage = () => {
         // Очищаем корзину
         clearCart();
 
-        // Перенаправляем на страницу успеха или платежки
+        // Перенаправляем на страницу успеха или сразу на Модульбанк
         if (formData.paymentType === "online") {
-          // TODO: Перенаправление на страницу платежки
-          router.push(`/order/payment/${order.id}`);
+          // Прямое перенаправление на Модульбанк
+          window.location.href = `/api/orders/${order.id}/pay/modulbank`;
         } else {
           // Для оплаты при получении - на страницу успеха
           router.push(`/order/success/${order.id}`);

@@ -25,13 +25,6 @@ export default function PaymentPage() {
   >("pending");
   const [error, setError] = useState<string | null>(null);
 
-  const [cardData, setCardData] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
-
   useEffect(() => {
     if (id) {
       fetchOrder();
@@ -61,82 +54,22 @@ export default function PaymentPage() {
     }
   };
 
-  const handleCardInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    let formattedValue = value;
-
-    if (name === "number") {
-      // Форматируем номер карты (xxxx xxxx xxxx xxxx)
-      formattedValue = value
-        .replace(/\s/g, "")
-        .replace(/(.{4})/g, "$1 ")
-        .trim();
-      if (formattedValue.length > 19)
-        formattedValue = formattedValue.slice(0, 19);
-    } else if (name === "expiry") {
-      // Форматируем срок (xx/xx)
-      formattedValue = value.replace(/\D/g, "").replace(/(\d{2})(\d)/, "$1/$2");
-      if (formattedValue.length > 5)
-        formattedValue = formattedValue.slice(0, 5);
-    } else if (name === "cvv") {
-      // Только цифры, максимум 3
-      formattedValue = value.replace(/\D/g, "").slice(0, 3);
-    }
-
-    setCardData((prev) => ({ ...prev, [name]: formattedValue }));
-  };
-
-  const simulatePayment = async () => {
+  const createModulbankPayment = async () => {
     setPaymentLoading(true);
 
-    // Имитируем процесс оплаты
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    // 90% успешных платежей
-    const success = Math.random() > 0.1;
-
-    if (success) {
-      setPaymentStatus("success");
-
-      // Обновляем статус заказа на "оплачен"
-      try {
-        await fetch(`/api/orders/${id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: "PAID" }),
-        });
-      } catch (error) {
-        console.error("Error updating order status:", error);
-      }
-
-      // Перенаправляем на страницу успеха через 2 секунды
-      setTimeout(() => {
-        router.push(`/order/success/${id}`);
-      }, 2000);
-    } else {
+    try {
+      // Прямой редирект на API endpoint, который вернет HTML с автоматической отправкой формы
+      window.location.href = `/api/orders/${id}/pay/modulbank`;
+    } catch (error) {
+      console.error("Error redirecting to payment:", error);
       setPaymentStatus("error");
+      setError("Ошибка перенаправления на оплату");
+      setPaymentLoading(false);
     }
-
-    setPaymentLoading(false);
   };
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Простая валидация
-    if (
-      !cardData.number ||
-      !cardData.expiry ||
-      !cardData.cvv ||
-      !cardData.name
-    ) {
-      alert("Заполните все поля");
-      return;
-    }
-
-    await simulatePayment();
+  const handlePayment = async () => {
+    await createModulbankPayment();
   };
 
   if (loading) {
@@ -201,7 +134,7 @@ export default function PaymentPage() {
             ТЕСТОВЫЙ РЕЖИМ
           </div>
           <p className="text-orange-700">
-            Это демонстрационная страница оплаты. Реальные деньги не
+            Платежная система работает в тестовом режиме. Реальные деньги не
             списываются.
           </p>
         </div>
@@ -231,95 +164,52 @@ export default function PaymentPage() {
           >
             <div className="flex items-center gap-3 mb-6">
               <CreditCard className="h-6 w-6 text-blue-600" />
-              <H2>Данные карты</H2>
+              <H2>Оплата заказа</H2>
             </div>
 
             {paymentStatus === "pending" && (
-              <form onSubmit={handlePayment} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Номер карты *
-                  </label>
-                  <input
-                    type="text"
-                    name="number"
-                    value={cardData.number}
-                    onChange={handleCardInputChange}
-                    placeholder="1234 5678 9012 3456"
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="space-y-6">
+                <div className="text-center py-6">
+                  <Descriptor className="mb-4">
+                    Для оплаты заказа вы будете перенаправлены на безопасную
+                    страницу платежной системы Модульбанк
+                  </Descriptor>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-6 justify-center">
+                    <Shield className="h-4 w-4" />
+                    <span>Ваши данные защищены SSL-шифрованием</span>
+                  </div>
+
+                  <Button1
+                    onClick={handlePayment}
+                    disabled={paymentLoading}
+                    className="flex items-center justify-center gap-2 min-w-[200px]"
+                  >
+                    {paymentLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Подготовка платежа...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        Перейти к оплате
+                      </>
+                    )}
+                  </Button1>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Срок действия *
-                    </label>
-                    <input
-                      type="text"
-                      name="expiry"
-                      value={cardData.expiry}
-                      onChange={handleCardInputChange}
-                      placeholder="12/25"
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      CVV *
-                    </label>
-                    <input
-                      type="text"
-                      name="cvv"
-                      value={cardData.cvv}
-                      onChange={handleCardInputChange}
-                      placeholder="123"
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                <div className="border-t pt-4">
+                  <div className="text-sm text-gray-600 space-y-2">
+                    <p className="font-medium">Способы оплаты:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li>Банковские карты (Visa, MasterCard, МИР)</li>
+                      <li>Система быстрых платежей (СБП)</li>
+                      <li>YandexPay</li>
+                    </ul>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Имя владельца карты *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={cardData.name}
-                    onChange={handleCardInputChange}
-                    placeholder="IVAN PETROV"
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 text-sm text-gray-600 mt-4">
-                  <Shield className="h-4 w-4" />
-                  <span>Ваши данные защищены SSL-шифрованием</span>
-                </div>
-
-                <Button1
-                  type="submit"
-                  disabled={paymentLoading}
-                  className="w-full flex items-center justify-center gap-2"
-                >
-                  {paymentLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Обработка платежа...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="h-4 w-4" />
-                      Оплатить {formatPrice(order.totalAmount, order.currency)}
-                    </>
-                  )}
-                </Button1>
-              </form>
+              </div>
             )}
 
             {paymentStatus === "success" && (
