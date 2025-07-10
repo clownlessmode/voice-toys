@@ -26,7 +26,7 @@ const CategoryCard = ({
       <Image
         alt="baby"
         src={`/select-your-category/${image}`}
-        className="overflow-hidden rounded-[20px]"
+        className="overflow-hidden rounded-[20px] max-w-3/4 aspect-[9/16] bg-cover object-cover"
         width={1000}
         height={1000}
       />

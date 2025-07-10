@@ -99,10 +99,6 @@ export default function Product({ product }: { product: ProductType }) {
         variants={cardVariants}
         initial="hidden"
         animate="visible"
-        whileHover={{
-          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-          transition: { duration: 0.2 },
-        }}
         whileTap={{ scale: 0.98 }}
       >
         <motion.div variants={imageVariants}>
