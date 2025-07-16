@@ -22,6 +22,7 @@ export function transformProductFromDB(dbProduct: any): Product {
       details: dbProduct.returnDetails,
     },
     description: dbProduct.description,
+    videoUrl: dbProduct.videoUrl || undefined,
     characteristics:
       dbProduct.characteristics?.map((char: any) => ({
         key: char.key,

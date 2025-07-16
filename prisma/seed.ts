@@ -38,6 +38,7 @@ const singleProduct = {
   ],
   categories: ["Интерактивные игрушки", "Бизиборды"],
   ageGroups: ["1+", "2+", "3+"],
+  videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4", // пример видео
 };
 
 async function main() {
@@ -72,6 +73,7 @@ async function main() {
       description: singleProduct.description,
       categories: JSON.stringify(singleProduct.categories),
       ageGroups: JSON.stringify(singleProduct.ageGroups),
+      videoUrl: singleProduct.videoUrl, // добавляем видео
     },
   });
 

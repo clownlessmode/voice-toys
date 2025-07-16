@@ -88,6 +88,7 @@ export async function PUT(
         returnDays: body.returnDays || 14,
         returnDetails: body.returnDetails,
         description: body.description,
+        videoUrl: body.videoUrl,
         categories: JSON.stringify(body.categories || []),
         ageGroups: JSON.stringify(body.ageGroups || []),
         characteristics: {
@@ -159,6 +160,7 @@ export async function PATCH(
       updateData.returnDetails = body.returnDetails;
     if (body.description !== undefined)
       updateData.description = body.description;
+    if (body.videoUrl !== undefined) updateData.videoUrl = body.videoUrl;
     if (body.categories !== undefined)
       updateData.categories = JSON.stringify(body.categories);
     if (body.ageGroups !== undefined)

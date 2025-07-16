@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
         returnDays: body.returnDays || 14,
         returnDetails: body.returnDetails,
         description: body.description,
+        videoUrl: body.videoUrl || null,
         categories: JSON.stringify(body.categories || []),
         ageGroups: JSON.stringify(body.ageGroups || []),
         characteristics: {

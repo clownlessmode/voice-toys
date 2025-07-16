@@ -4,6 +4,22 @@ import { ImageProcessor, generateFileName } from "@/lib/image-utils";
 
 export const runtime = "nodejs";
 
+// Функция для проверки видео файлов
+function isValidVideo(mimeType: string): boolean {
+  const validVideoTypes = [
+    "video/mp4",
+    "video/webm",
+    "video/ogg",
+    "video/quicktime",
+  ];
+  return validVideoTypes.includes(mimeType);
+}
+
+// Функция для проверки изображений
+function isValidImage(mimeType: string): boolean {
+  return ImageProcessor.isValidImage(mimeType);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -21,20 +37,28 @@ export async function POST(request: NextRequest) {
     const uploadedFiles = [];
 
     for (const file of files) {
-      // Проверяем, что это изображение
-      if (!ImageProcessor.isValidImage(file.type)) {
+      // Проверяем, что это изображение или видео
+      const isImage = isValidImage(file.type);
+      const isVideo = isValidVideo(file.type);
+
+      if (!isImage && !isVideo) {
         return NextResponse.json(
           {
-            error: `Invalid file type: ${file.type}. Only images are allowed.`,
+            error: `Invalid file type: ${file.type}. Only images and videos are allowed.`,
           },
           { status: 400 }
         );
       }
 
-      // Проверяем размер файла (максимум 10MB)
-      if (file.size > 10 * 1024 * 1024) {
+      // Проверяем размер файла (максимум 100MB для видео, 10MB для изображений)
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (file.size > maxSize) {
         return NextResponse.json(
-          { error: `File too large: ${file.name}. Maximum size is 10MB.` },
+          {
+            error: `File too large: ${file.name}. Maximum size is ${Math.round(
+              maxSize / 1024 / 1024
+            )}MB.`,
+          },
           { status: 400 }
         );
       }
@@ -44,31 +68,51 @@ export async function POST(request: NextRequest) {
       const uint8Array = new Uint8Array(arrayBuffer);
       const buffer = Buffer.from(uint8Array);
 
-      // Получаем метаданные изображения
-      const metadata = await ImageProcessor.getImageMetadata(buffer);
-
-      // Обрабатываем изображение
       let processedBuffer = buffer;
-      if (resize && (width || height)) {
-        processedBuffer = await ImageProcessor.convertToWebP(buffer, {
-          width,
-          height,
-          quality,
-        });
+      let fileExtension = "";
+      let mimeType = file.type;
+      let metadata = {};
+
+      if (isImage) {
+        // Обрабатываем изображение
+        const imageMetadata = await ImageProcessor.getImageMetadata(buffer);
+        metadata = {
+          width: imageMetadata.width,
+          height: imageMetadata.height,
+          format: imageMetadata.format,
+        };
+
+        if (resize && (width || height)) {
+          processedBuffer = await ImageProcessor.convertToWebP(buffer, {
+            width,
+            height,
+            quality,
+          });
+        } else {
+          // Просто конвертируем в WebP
+          processedBuffer = await ImageProcessor.convertToWebP(buffer, {
+            quality,
+          });
+        }
+        fileExtension = ".webp";
+        mimeType = "image/webp";
       } else {
-        // Просто конвертируем в WebP
-        processedBuffer = await ImageProcessor.convertToWebP(buffer, {
-          quality,
-        });
+        // Для видео оставляем как есть без сжатия
+        fileExtension = file.name.substring(file.name.lastIndexOf("."));
+        metadata = {
+          duration: null, // Можно добавить извлечение длительности видео
+          format: file.type,
+          originalSize: file.size,
+        };
       }
 
       // Генерируем имя файла
       const fileName = generateFileName(file.name);
-      const key = `${folder}/${fileName}.webp`;
+      const key = `${folder}/${fileName}${fileExtension}`;
 
       // Очищаем метаданные от недопустимых символов для HTTP заголовков
       const cleanMetadata = {
-        originalname: file.name.replace(/[^\w\-._]/g, "_"), // Заменяем недопустимые символы
+        originalname: file.name.replace(/[^\w\-._]/g, "_"),
         originalsize: file.size.toString(),
         originaltype: file.type.replace(/[^\w\-./]/g, "_"),
         processedat: new Date().toISOString(),
@@ -78,22 +122,18 @@ export async function POST(request: NextRequest) {
       const url = await s3Storage.uploadFile(
         key,
         processedBuffer,
-        "image/webp",
+        mimeType,
         cleanMetadata
       );
 
       uploadedFiles.push({
         originalName: file.name,
-        fileName: `${fileName}.webp`,
+        fileName: `${fileName}${fileExtension}`,
         url,
         key,
         size: processedBuffer.length,
         originalSize: file.size,
-        metadata: {
-          width: metadata.width,
-          height: metadata.height,
-          format: metadata.format,
-        },
+        metadata,
       });
     }
 

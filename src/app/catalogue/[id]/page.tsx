@@ -30,6 +30,7 @@ import { useCart } from "../../cart/use-cart";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFavorites } from "@/store/favoritesStore"; // Импортируем ваш хук
 import ProductSlider from "@/components/ui/components/product-slider";
+import { X } from "lucide-react";
 
 const faq = [
   {
@@ -125,11 +126,15 @@ const cardVariants = {
 const Page = () => {
   const params = useParams<{ id: string }>();
   const [product, setProduct] = useState<ProductType | null>(null);
+  const [images, setImages] = useState<string[]>([]); // Новое состояние для картинок
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
   const [similarProducts, setSimilarProducts] = useState<ProductType[]>([]);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const handleOpenVideoDialog = () => setIsVideoOpen(true);
+  const handleCloseVideoDialog = () => setIsVideoOpen(false);
 
   // Используем ваш Zustand стор
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -140,6 +145,7 @@ const Page = () => {
       try {
         const productData = await getProductById(params.id);
         setProduct(productData);
+        setImages(productData.images); // Инициализация локального массива картинок
 
         // Fetch similar products based on the first category in breadcrumbs
         if (productData.breadcrumbs.length > 0) {
@@ -201,6 +207,16 @@ const Page = () => {
     setTimeout(() => setIsAnimating(false), 600);
   };
 
+  // Обработчик клика по маленькой картинке
+  const handleImageClick = (index: number) => {
+    if (index === 0) return;
+    setImages((prev) => {
+      const newImages = [...prev];
+      [newImages[0], newImages[index]] = [newImages[index], newImages[0]];
+      return newImages;
+    });
+  };
+
   // Проверяем, находится ли продукт в избранном
   const productIsFavorite = isFavorite(product.id);
 
@@ -213,6 +229,55 @@ const Page = () => {
         "flex flex-col items-center justify-start min-h-screen bg-body-background"
       )}
     >
+      {/* Видео диалог */}
+      {product?.videoUrl && (
+        <AnimatePresence>
+          {isVideoOpen && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div
+                className="absolute inset-0"
+                onClick={handleCloseVideoDialog}
+              />
+              <motion.div
+                className="relative bg-[#e6ff6b] rounded-2xl p-6 shadow-2xl flex flex-col items-center"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{
+                  minWidth: "90vw",
+                  maxWidth: "95vw",
+                  maxHeight: "90vh",
+                }}
+              >
+                <button
+                  className="absolute top-2 right-2 text-black/80 hover:text-black text-2xl z-10"
+                  onClick={handleCloseVideoDialog}
+                  aria-label="Закрыть видео"
+                >
+                  <X />
+                </button>
+                <video
+                  src={product.videoUrl}
+                  controls
+                  autoPlay
+                  className="rounded-xl bg-black aspect-video w-full h-auto"
+                  style={{
+                    background: "black",
+                    minWidth: "90vw",
+                    minHeight: "auto",
+                  }}
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
       <Header />
       <motion.div
         className="flex flex-col gap-[24px] w-full"
@@ -244,46 +309,6 @@ const Page = () => {
                   className="flex flex-col gap-[10px] w-full lg:flex-row-reverse lg:justify-end lg:items-end lg:flex lg:h-fit!"
                   variants={itemVariants}
                 >
-                  {/* <div className="flex flex-col lg:flex-row-reverse gap-[10px] lg:gap-[24px] w-full lg:h-fit! lg:overflow-hidden">
-
-                    <motion.div
-                      variants={imageVariants}
-                      className="w-full lg:flex-1 aspect-square lg:h-fit!"
-                    >
-                      <Image
-                        className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit "
-                        src={product.images[0]}
-                        alt={product.name}
-                        width={1200}
-                        height={1200}
-                      />
-                    </motion.div>
-
-
-                    <motion.div
-                      className="flex flex-row gap-[10px] flex-nowrap lg:flex-col lg:w-[120px] lg:h-full lg:gap-[10px]"
-                      variants={containerVariants}
-                    >
-                      {product.images.slice(1, 6).map((image, index) => (
-                        <motion.div
-                          key={index}
-                          variants={imageVariants}
-                          whileHover={{ scale: 1.0 }}
-                          transition={{ duration: 0.2 }}
-                          className="aspect-square lg:w-full"
-                        >
-                          <Image
-                            className="aspect-square object-cover rounded-2xl w-full h-full"
-                            src={image}
-                            alt={"image"}
-                            width={1200}
-                            height={1200}
-                          />
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  </div> */}
-
                   <div className="grid grid-cols-5 grid-rows-6 gap-4 w-full lg:grid-cols-6 lg:grid-rows-5">
                     {/* Большая картинка */}
                     <motion.div
@@ -292,7 +317,7 @@ const Page = () => {
                     >
                       <Image
                         className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit "
-                        src={product.images[0]}
+                        src={images[0]}
                         alt={product.name}
                         width={1200}
                         height={1200}
@@ -300,7 +325,7 @@ const Page = () => {
                     </motion.div>
 
                     {/* Маленькие картинки */}
-                    {product.images.slice(1, 6).map((image, index) => {
+                    {images.slice(1, 6).map((image, index) => {
                       const mobilePositions = [
                         "col-start-1 row-start-6", // для мобильных все в 6-й строке
                         "col-start-2 row-start-6",
@@ -324,6 +349,8 @@ const Page = () => {
                           whileHover={{ scale: 1.02 }}
                           transition={{ duration: 0.2 }}
                           className={`aspect-square ${mobilePositions[index]} ${desktopPositions[index]}`}
+                          onClick={() => handleImageClick(index + 1)}
+                          style={{ cursor: "pointer" }}
                         >
                           <Image
                             className="aspect-square object-cover rounded-2xl w-full h-full"
@@ -462,29 +489,51 @@ const Page = () => {
                     <T2>{product.availability.delivery}</T2>
                   </motion.div>
 
-                  {/* Кнопка добавления в корзину с анимацией */}
-                  <motion.div variants={itemVariants}>
-                    <Button1
-                      className="justify-center relative overflow-hidden"
-                      onClick={handleAddToCart}
-                    >
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={isAdded ? "added" : "add"}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{
-                            duration: 0.3,
-                            ease: "easeInOut",
-                          }}
-                          className="block"
+                  {/* Кнопки действий */}
+                  <div className="flex flex-col gap-2 w-full">
+                    {product.videoUrl && (
+                      <motion.div variants={itemVariants}>
+                        <Button1
+                          className="justify-center relative overflow-hidden bg-transparent! border-3 border-primary text-black"
+                          onClick={handleOpenVideoDialog}
                         >
-                          {isAdded ? "Добавлено в корзину" : "В корзину"}
-                        </motion.span>
-                      </AnimatePresence>
-                    </Button1>
-                  </motion.div>
+                          <AnimatePresence mode="wait">
+                            <motion.span
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ duration: 0.3, ease: "easeInOut" }}
+                              className="block"
+                            >
+                              Видео
+                            </motion.span>
+                          </AnimatePresence>
+                        </Button1>
+                      </motion.div>
+                    )}
+                    <motion.div variants={itemVariants}>
+                      <Button1
+                        className="justify-center relative overflow-hidden"
+                        onClick={handleAddToCart}
+                      >
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={isAdded ? "added" : "add"}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{
+                              duration: 0.3,
+                              ease: "easeInOut",
+                            }}
+                            className="block"
+                          >
+                            {isAdded ? "Добавлено в корзину" : "В корзину"}
+                          </motion.span>
+                        </AnimatePresence>
+                      </Button1>
+                    </motion.div>
+                  </div>
                 </motion.div>
 
                 {/* Остальные блоки остаются без изменений */}
@@ -525,7 +574,7 @@ const Page = () => {
                     className="flex flex-col gap-[16px]"
                     variants={itemVariants}
                   >
-                    <H3>Характеристки</H3>
+                    <H3>Характеристики</H3>
                     <motion.div
                       className="flex flex-col gap-[12px]"
                       variants={containerVariants}
@@ -701,28 +750,47 @@ const Page = () => {
                   </motion.div>
 
                   {/* Кнопка добавления в корзину с анимацией */}
-                  <motion.div variants={itemVariants}>
-                    <Button1
-                      className="justify-center relative overflow-hidden"
-                      onClick={handleAddToCart}
-                    >
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={isAdded ? "added" : "add"}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{
-                            duration: 0.3,
-                            ease: "easeInOut",
-                          }}
-                          className="block"
+                  <div className="flex flex-row gap-2 w-full">
+                    {product.videoUrl && (
+                      <motion.div variants={itemVariants} className="w-full">
+                        <Button1
+                          className="justify-center relative overflow-hidden bg-transparent! border-3 border-primary text-black"
+                          onClick={handleOpenVideoDialog}
                         >
-                          {isAdded ? "Добавлено в корзину" : "В корзину"}
-                        </motion.span>
-                      </AnimatePresence>
-                    </Button1>
-                  </motion.div>
+                          <AnimatePresence mode="wait">
+                            <motion.span
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ duration: 0.3, ease: "easeInOut" }}
+                              className="block"
+                            >
+                              Видео
+                            </motion.span>
+                          </AnimatePresence>
+                        </Button1>
+                      </motion.div>
+                    )}
+                    <motion.div variants={itemVariants} className="w-full">
+                      <Button1
+                        className="justify-center relative overflow-hidden"
+                        onClick={handleAddToCart}
+                      >
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={isAdded ? "added" : "add"}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="block"
+                          >
+                            {isAdded ? "Добавлено в корзину" : "В корзину"}
+                          </motion.span>
+                        </AnimatePresence>
+                      </Button1>
+                    </motion.div>
+                  </div>
                 </motion.div>
                 <motion.div
                   className="bg-white rounded-lg p-[24px] flex flex-col gap-[16px]"

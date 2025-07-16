@@ -13,6 +13,7 @@ export interface Product {
   ageGroups: string[];
   createdAt?: string;
   updatedAt?: string;
+  videoUrl?: string; // ссылка на видео
 }
 
 export interface Price {
@@ -54,6 +55,7 @@ export interface CreateProductRequest {
   characteristics: Characteristic[];
   categories?: string[];
   ageGroups?: string[];
+  videoUrl?: string;
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {

@@ -22,6 +22,7 @@ model Product {
   returnDays        Int               @default(14)
   returnDetails     String
   description       String
+  videoUrl          String?           // ссылка на видео (опционально)
   characteristics   ProductCharacteristic[]
   orderItems        OrderItem[]
   categories        String            // JSON array of category strings

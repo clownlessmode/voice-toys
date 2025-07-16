@@ -26,6 +26,7 @@ interface ProductForm {
   characteristics: { key: string; value: string }[];
   categories: string[];
   ageGroups: string[];
+  videoUrl?: string; // новое поле
 }
 
 export default function NewProduct() {
@@ -50,7 +51,9 @@ export default function NewProduct() {
     characteristics: [{ key: "", value: "" }],
     categories: [],
     ageGroups: [],
+    videoUrl: "", // по умолчанию пусто
   });
+  const [uploadedVideo, setUploadedVideo] = useState<UploadedFile | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +81,7 @@ export default function NewProduct() {
         characteristics: form.characteristics.filter(
           (char) => char.key.trim() !== "" && char.value.trim() !== ""
         ),
+        videoUrl: form.videoUrl?.trim() || undefined,
       };
 
       const response = await fetch("/api/products", {
@@ -300,6 +304,53 @@ export default function NewProduct() {
                 }
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Видео (mp4, webm, не более 100 МБ)
+              </label>
+              <FileUpload
+                accept="video/mp4,video/webm"
+                maxFiles={1}
+                maxFileSize={100 * 1024 * 1024}
+                folder="products/videos"
+                multiple={false}
+                onUpload={(files) => {
+                  const file = files[0];
+                  setUploadedVideo(file);
+                  setForm({ ...form, videoUrl: file.url });
+                }}
+                onError={(err) => setUploadError(err)}
+                className="mb-2"
+              />
+              {uploadedVideo && (
+                <div className="flex items-center gap-4 mt-2">
+                  <video
+                    src={uploadedVideo.url}
+                    controls
+                    className="w-48 h-32 rounded bg-black"
+                  />
+                  <button
+                    type="button"
+                    className="text-red-500 hover:underline"
+                    onClick={() => {
+                      setUploadedVideo(null);
+                      setForm({ ...form, videoUrl: "" });
+                    }}
+                  >
+                    Удалить видео
+                  </button>
+                </div>
+              )}
+              {uploadError && (
+                <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                  {uploadError}
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Можно загрузить только 1 видео. Если не требуется — оставьте
+                пустым.
+              </p>
             </div>
           </div>
         </div>

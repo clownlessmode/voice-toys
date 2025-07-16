@@ -26,6 +26,7 @@ interface ProductForm {
   characteristics: { key: string; value: string }[];
   categories: string[];
   ageGroups: string[];
+  videoUrl?: string; // новое поле
 }
 
 export default function EditProduct() {
@@ -36,6 +37,7 @@ export default function EditProduct() {
   const [error, setError] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [uploadError, setUploadError] = useState<string>("");
+  const [uploadedVideo, setUploadedVideo] = useState<UploadedFile | null>(null);
   const [form, setForm] = useState<ProductForm>({
     name: "",
     breadcrumbs: ["Главная", "Каталог", "Интерактивные игрушки", ""],
@@ -53,6 +55,7 @@ export default function EditProduct() {
     characteristics: [{ key: "", value: "" }],
     categories: [],
     ageGroups: [],
+    videoUrl: "", // по умолчанию пусто
   });
 
   useEffect(() => {
@@ -75,7 +78,20 @@ export default function EditProduct() {
           characteristics: product.characteristics,
           categories: product.categories || [],
           ageGroups: product.ageGroups || [],
+          videoUrl: product.videoUrl || "", // добавляем видео
         });
+        // Инициализируем uploadedVideo если есть видео
+        if (product.videoUrl) {
+          setUploadedVideo({
+            url: product.videoUrl,
+            originalName: "",
+            fileName: "",
+            key: "",
+            size: 0,
+            originalSize: 0,
+            metadata: {},
+          });
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Ошибка загрузки");
       } finally {
@@ -112,6 +128,7 @@ export default function EditProduct() {
         characteristics: form.characteristics.filter(
           (char) => char.key.trim() !== "" && char.value.trim() !== ""
         ),
+        videoUrl: form.videoUrl?.trim() || undefined,
       };
 
       const response = await fetch(`/api/products/${params.id}`, {
@@ -372,6 +389,53 @@ export default function EditProduct() {
                 }
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Видео (mp4, webm, не более 100 МБ)
+              </label>
+              <FileUpload
+                accept="video/mp4,video/webm"
+                maxFiles={1}
+                maxFileSize={100 * 1024 * 1024}
+                folder="products/videos"
+                multiple={false}
+                onUpload={(files) => {
+                  const file = files[0];
+                  setUploadedVideo(file);
+                  setForm({ ...form, videoUrl: file.url });
+                }}
+                onError={(err) => setUploadError(err)}
+                className="mb-2"
+              />
+              {uploadedVideo && (
+                <div className="flex items-center gap-4 mt-2">
+                  <video
+                    src={uploadedVideo.url}
+                    controls
+                    className="w-48 h-32 rounded bg-black"
+                  />
+                  <button
+                    type="button"
+                    className="text-red-500 hover:underline"
+                    onClick={() => {
+                      setUploadedVideo(null);
+                      setForm({ ...form, videoUrl: "" });
+                    }}
+                  >
+                    Удалить видео
+                  </button>
+                </div>
+              )}
+              {uploadError && (
+                <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                  {uploadError}
+                </div>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Можно загрузить только 1 видео. Если не требуется — оставьте
+                пустым.
+              </p>
             </div>
           </div>
         </div>
