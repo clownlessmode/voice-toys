@@ -14,7 +14,7 @@ import Image from "next/image";
 import H2 from "@/components/ui/typography/H2";
 import Descriptor from "@/components/ui/typography/Descriptor";
 import T2 from "@/components/ui/typography/T2";
-import { Heart } from "lucide-react";
+import { Heart, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
 import Navigation from "@/components/ui/typography/Navigation";
 import Button1 from "@/components/ui/typography/Button1";
 import H3 from "@/components/ui/typography/H3";
@@ -139,6 +139,9 @@ const Page = () => {
   // Используем ваш Zustand стор
   const { isFavorite, toggleFavorite } = useFavorites();
   const [isAnimating, setIsAnimating] = useState(false);
+  const [thumbOffset, setThumbOffset] = useState(0);
+  const [thumbAnimDir, setThumbAnimDir] = useState<1 | -1>(1);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -167,6 +170,39 @@ const Page = () => {
 
     fetchProduct();
   }, [params.id]);
+
+  // Корректируем смещение превью при изменении количества изображений
+  useEffect(() => {
+    const smallImagesCount = Math.max(0, images.length - 1);
+    const maxThumbOffset = Math.max(0, smallImagesCount - 5);
+    setThumbOffset((prev) => Math.min(prev, maxThumbOffset));
+  }, [images]);
+
+  // Предзагрузка ближайших миниатюр для плавной прокрутки
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!images || images.length <= 1) return;
+    const startIndex = Math.max(1, 1 + thumbOffset - 4);
+    const endIndex = Math.min(images.length, 1 + thumbOffset + 12);
+    for (let i = startIndex; i < endIndex; i += 1) {
+      const url = images[i];
+      if (!url) continue;
+      const img = new window.Image();
+      img.src = url;
+    }
+  }, [images, thumbOffset]);
+
+  // Трекер брейкпоинта для выбора оси анимации (desktop: вертикаль, mobile: горизонталь)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mql.matches);
+    update();
+    mql.addEventListener?.("change", update);
+    return () => {
+      mql.removeEventListener?.("change", update);
+    };
+  }, []);
 
   // Если идет загрузка
   if (loading) {
@@ -219,6 +255,21 @@ const Page = () => {
 
   // Проверяем, находится ли продукт в избранном
   const productIsFavorite = isFavorite(product.id);
+
+  // Поддержка карусели маленьких изображений (только для десктопа визуально)
+  const smallImagesCount = Math.max(0, images.length - 1);
+  const maxThumbOffset = Math.max(0, smallImagesCount - 5);
+  const canScrollDown = thumbOffset < maxThumbOffset;
+  const canScrollUp = thumbOffset > 0;
+
+  const scrollThumbsUp = () => {
+    setThumbAnimDir(-1);
+    setThumbOffset((prev) => Math.max(prev - 3, 0));
+  };
+  const scrollThumbsDown = () => {
+    setThumbAnimDir(1);
+    setThumbOffset((prev) => Math.min(prev + 3, maxThumbOffset));
+  };
 
   return (
     <main
@@ -309,7 +360,7 @@ const Page = () => {
                   className="flex flex-col gap-[10px] w-full lg:flex-row-reverse lg:justify-end lg:items-end lg:flex lg:h-fit!"
                   variants={itemVariants}
                 >
-                  <div className="grid grid-cols-5 grid-rows-6 gap-4 w-full lg:grid-cols-6 lg:grid-rows-5">
+                  <div className="grid grid-cols-5 grid-rows-6 gap-4 w-full lg:grid-cols-6 lg:grid-rows-5 relative">
                     {/* Большая картинка */}
                     <motion.div
                       variants={imageVariants}
@@ -324,44 +375,134 @@ const Page = () => {
                       />
                     </motion.div>
 
-                    {/* Маленькие картинки */}
-                    {images.slice(1, 6).map((image, index) => {
-                      const mobilePositions = [
-                        "col-start-1 row-start-6", // для мобильных все в 6-й строке
-                        "col-start-2 row-start-6",
-                        "col-start-3 row-start-6",
-                        "col-start-4 row-start-6",
-                        "col-start-5 row-start-6",
-                      ];
+                    {/* Маленькие картинки (карусель на десктопе с анимацией) */}
+                    <AnimatePresence initial={false}>
+                      {images
+                        .slice(1 + thumbOffset, 6 + thumbOffset)
+                        .map((image, index) => {
+                          const mobilePositions = [
+                            "col-start-1 row-start-6", // для мобильных все в 6-й строке
+                            "col-start-2 row-start-6",
+                            "col-start-3 row-start-6",
+                            "col-start-4 row-start-6",
+                            "col-start-5 row-start-6",
+                          ];
 
-                      const desktopPositions = [
-                        "lg:col-start-1 lg:row-start-1", // для десктопа в первой колонке
-                        "lg:col-start-1 lg:row-start-2",
-                        "lg:col-start-1 lg:row-start-3",
-                        "lg:col-start-1 lg:row-start-4",
-                        "lg:col-start-1 lg:row-start-5",
-                      ];
+                          const desktopPositions = [
+                            "lg:col-start-1 lg:row-start-1", // для десктопа в первой колонке
+                            "lg:col-start-1 lg:row-start-2",
+                            "lg:col-start-1 lg:row-start-3",
+                            "lg:col-start-1 lg:row-start-4",
+                            "lg:col-start-1 lg:row-start-5",
+                          ];
 
-                      return (
-                        <motion.div
-                          key={index}
-                          variants={imageVariants}
-                          whileHover={{ scale: 1.02 }}
-                          transition={{ duration: 0.2 }}
-                          className={`aspect-square ${mobilePositions[index]} ${desktopPositions[index]}`}
-                          onClick={() => handleImageClick(index + 1)}
-                          style={{ cursor: "pointer" }}
+                          return (
+                            <motion.div
+                              key={`thumb-${thumbOffset}-${index}-${image}`}
+                              initial={
+                                isDesktop
+                                  ? {
+                                      y: thumbAnimDir > 0 ? 24 : -24,
+                                      x: 0,
+                                      opacity: 0,
+                                    }
+                                  : {
+                                      x: thumbAnimDir > 0 ? 24 : -24,
+                                      y: 0,
+                                      opacity: 0,
+                                    }
+                              }
+                              animate={{ x: 0, y: 0, opacity: 1 }}
+                              exit={
+                                isDesktop
+                                  ? {
+                                      y: thumbAnimDir > 0 ? -24 : 24,
+                                      x: 0,
+                                      opacity: 0,
+                                    }
+                                  : {
+                                      x: thumbAnimDir > 0 ? -24 : 24,
+                                      y: 0,
+                                      opacity: 0,
+                                    }
+                              }
+                              transition={{ duration: 0.25, ease: "easeOut" }}
+                              whileHover={{ scale: 1.02 }}
+                              className={`aspect-square ${mobilePositions[index]} ${desktopPositions[index]}`}
+                              onClick={() =>
+                                handleImageClick(index + 1 + thumbOffset)
+                              }
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Image
+                                className="aspect-square object-cover rounded-2xl w-full h-full"
+                                src={image}
+                                alt={`image ${index + 1}`}
+                                width={1200}
+                                height={1200}
+                              />
+                            </motion.div>
+                          );
+                        })}
+                    </AnimatePresence>
+
+                    {/* Оверлей обертка для кнопок, позиционированная относительно блока миниатюр (только десктоп) */}
+                    <div className="hidden lg:block lg:col-start-1 lg:row-start-1 lg:row-span-5 relative z-20 pointer-events-none">
+                      {/* Вверх */}
+                      {canScrollUp && (
+                        <button
+                          type="button"
+                          aria-label="Прокрутить вверх"
+                          onClick={scrollThumbsUp}
+                          className="pointer-events-auto flex items-center justify-center absolute left-1/2 -translate-x-1/2 top-2  w-10 h-10 rounded-full bg-primary text-black transition-transform hover:scale-105 shadow-md"
+                          style={{ opacity: 0.95 }}
                         >
-                          <Image
-                            className="aspect-square object-cover rounded-2xl w-full h-full"
-                            src={image}
-                            alt={`image ${index + 1}`}
-                            width={1200}
-                            height={1200}
-                          />
-                        </motion.div>
-                      );
-                    })}
+                          <ArrowUp className="w-5 h-5" strokeWidth={3} />
+                        </button>
+                      )}
+
+                      {/* Вниз */}
+                      {canScrollDown && (
+                        <button
+                          type="button"
+                          aria-label="Прокрутить вниз"
+                          onClick={scrollThumbsDown}
+                          className="pointer-events-auto flex items-center justify-center absolute left-1/2 -translate-x-1/2 bottom-2 w-10 h-10 rounded-full bg-primary text-black transition-transform hover:scale-105 shadow-md"
+                          style={{ opacity: 0.95 }}
+                        >
+                          <ArrowDown className="w-5 h-5" strokeWidth={3} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Оверлей обертка для кнопок (только мобильные, по горизонтали) */}
+                    <div className="lg:hidden col-start-1 row-start-6 col-span-5 relative z-20 pointer-events-none">
+                      {/* Влево */}
+                      {canScrollUp && (
+                        <button
+                          type="button"
+                          aria-label="Листать влево"
+                          onClick={scrollThumbsUp}
+                          className="pointer-events-auto flex items-center justify-center absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-primary text-black transition-transform hover:scale-105 shadow-md"
+                          style={{ opacity: 0.95 }}
+                        >
+                          <ArrowLeft className="w-5 h-5" strokeWidth={3} />
+                        </button>
+                      )}
+
+                      {/* Вправо */}
+                      {canScrollDown && (
+                        <button
+                          type="button"
+                          aria-label="Листать вправо"
+                          onClick={scrollThumbsDown}
+                          className="pointer-events-auto flex items-center justify-center absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-primary text-black transition-transform hover:scale-105 shadow-md"
+                          style={{ opacity: 0.95 }}
+                        >
+                          <ArrowRight className="w-5 h-5" strokeWidth={3} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
 

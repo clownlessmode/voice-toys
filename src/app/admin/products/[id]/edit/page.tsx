@@ -523,7 +523,7 @@ export default function EditProduct() {
               }}
               onError={(error) => setUploadError(error)}
               folder="products"
-              maxFiles={10}
+              maxFiles={50}
               resize={true}
               width={1200}
               height={1200}
