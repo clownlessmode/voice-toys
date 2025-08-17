@@ -92,6 +92,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Добавляем paymentType в ответ, чтобы фронтенд мог его использовать
+    const orderWithPaymentType = {
+      ...order,
+      paymentType: data.paymentType,
+    };
+
     // Отправляем уведомление в Telegram для заказов с оплатой при получении
     if (data.paymentType === "cash_on_delivery") {
       try {
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json(orderWithPaymentType, { status: 201 });
   } catch (error) {
     console.error("Ошибка создания заказа:", error);
     return NextResponse.json(

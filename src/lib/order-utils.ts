@@ -46,6 +46,7 @@ export function validateOrderData(data: {
   customerPhone?: string;
   deliveryType?: string;
   deliveryAddress?: string;
+  cdekCity?: string;
   items?: Array<{ productId: string; quantity: number }>;
 }): string[] {
   const errors: string[] = [];
@@ -72,9 +73,9 @@ export function validateOrderData(data: {
 
   if (
     !data.deliveryType ||
-    !["pickup", "delivery"].includes(data.deliveryType)
+    !["pickup", "delivery", "cdek_office"].includes(data.deliveryType)
   ) {
-    errors.push("Тип доставки должен быть pickup или delivery");
+    errors.push("Тип доставки должен быть pickup, delivery или cdek_office");
   }
 
   if (
@@ -82,6 +83,14 @@ export function validateOrderData(data: {
     (!data.deliveryAddress || data.deliveryAddress.trim().length === 0)
   ) {
     errors.push("Адрес доставки обязателен для доставки");
+  }
+
+  // Для CDEK офиса проверяем, что выбран город
+  if (
+    data.deliveryType === "cdek_office" &&
+    (!data.cdekCity || data.cdekCity.trim().length === 0)
+  ) {
+    errors.push("Город обязателен для доставки в ПВЗ CDEK");
   }
 
   if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {

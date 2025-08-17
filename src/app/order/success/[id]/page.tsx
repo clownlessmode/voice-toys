@@ -14,7 +14,7 @@ export default function Success() {
   const params = useParams();
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<
-    "processing" | "success" | "error"
+    "processing" | "success" | "error" | "cash_on_delivery"
   >("processing");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -25,10 +25,10 @@ export default function Success() {
 
       console.log("🎯 Processing payment success:", { orderId, transactionId });
 
+      // Если нет transaction_id, это заказ с оплатой при получении
       if (!transactionId) {
-        console.error("❌ No transaction_id found in URL");
-        setPaymentStatus("error");
-        setErrorMessage("Отсутствует ID транзакции");
+        console.log("💰 Cash on delivery order - no payment processing needed");
+        setPaymentStatus("cash_on_delivery");
         return;
       }
 
@@ -121,6 +121,19 @@ export default function Success() {
               <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
                 {errorMessage ||
                   "Произошла ошибка при подтверждении оплаты. Пожалуйста, свяжитесь с поддержкой."}
+              </T1>
+            </>
+          )}
+
+          {paymentStatus === "cash_on_delivery" && (
+            <>
+              <H1 className="text-center lg:text-left">
+                Заказ успешно оформлен!
+              </H1>
+              <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
+                Ваш заказ принят в обработку. Оплата производится при получении.
+                Мы уже начали собирать игрушки. Скоро вы получите SMS с
+                информацией о доставке.
               </T1>
             </>
           )}
