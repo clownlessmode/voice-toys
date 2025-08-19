@@ -64,7 +64,7 @@ async function fetchCdekOffices(
   let token = await fetchCdekToken();
   console.log("🔑 Токен получен:", token ? "***" : "НЕ ПОЛУЧЕН");
 
-  const officesUrl = `https://api.edu.cdek.ru/v2/deliverypoints?city_code=${cityCode}&size=1000`;
+  const officesUrl = `https://api.cdek.ru/v2/deliverypoints?city_code=${cityCode}&size=1000`;
   console.log("🏪 URL для офисов:", officesUrl);
 
   let response = await fetch(officesUrl, {

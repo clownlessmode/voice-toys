@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { cities } from "./cities";
 import { useCdekOffices } from "./use-cdek-offices";
+import { SearchableCitySelect } from "./search-select";
 
 const OrderPage = () => {
   const { items, totalPrice, clearCart } = useCart();
@@ -104,37 +105,37 @@ const OrderPage = () => {
 
   // Функция форматирования телефонного номера
   const formatPhoneNumber = (value: string): string => {
-    // Убираем все символы кроме цифр
+    // Все цифры
     const numbers = value.replace(/\D/g, "");
 
-    // Если номер начинается с 8, заменяем на 7
-    let formattedNumber = numbers;
-    if (numbers.startsWith("8") && numbers.length > 0) {
-      formattedNumber = "7" + numbers.slice(1);
+    // Если поле было пустым и набрали ровно "8" или "7" — показать только префикс
+    if ((numbers === "8" || numbers === "7") && !value.includes("+")) {
+      return "+7 (";
     }
 
-    // Если номер начинается с 7 или 9, добавляем +7
-    if (formattedNumber.startsWith("7") || formattedNumber.startsWith("9")) {
-      formattedNumber =
-        "7" + formattedNumber.slice(formattedNumber.startsWith("7") ? 1 : 0);
+    // Работаем только с национальной частью (10 цифр), код страны не храним
+    let local = numbers;
+    if (local.startsWith("8") || local.startsWith("7")) {
+      local = local.slice(1);
+    }
+    local = local.slice(0, 10);
+
+    // Если стирают и остался только префикс "+7" — позволяем очистить поле
+    if (local.length === 0) {
+      if (/^\+7\s*KATEX_INLINE_OPEN?\s*$/.test(value)) return "";
+      // Если вообще ничего не введено
+      if (numbers.length === 0) return "";
     }
 
-    // Форматируем номер в виде +7 (XXX) XXX-XX-XX
-    if (formattedNumber.length === 0) return "";
-    if (formattedNumber.length <= 1) return `+7 (${formattedNumber}`;
-    if (formattedNumber.length <= 4)
-      return `+7 (${formattedNumber.slice(0, 3)}`;
-    if (formattedNumber.length <= 7)
-      return `+7 (${formattedNumber.slice(0, 3)}) ${formattedNumber.slice(3)}`;
-    if (formattedNumber.length <= 9)
-      return `+7 (${formattedNumber.slice(0, 3)}) ${formattedNumber.slice(
-        3,
-        6
-      )}-${formattedNumber.slice(6)}`;
-    return `+7 (${formattedNumber.slice(0, 3)}) ${formattedNumber.slice(
-      3,
-      6
-    )}-${formattedNumber.slice(6, 8)}-${formattedNumber.slice(8, 10)}`;
+    const p1 = local.slice(0, 3);
+    const p2 = local.slice(3, 6);
+    const p3 = local.slice(6, 8);
+    const p4 = local.slice(8, 10);
+
+    if (local.length <= 3) return `+7 (${p1}`;
+    if (local.length <= 6) return `+7 (${p1}) ${p2}`;
+    if (local.length <= 8) return `+7 (${p1}) ${p2}-${p3}`;
+    return `+7 (${p1}) ${p2}-${p3}-${p4}`;
   };
 
   const handleInputChange = (
@@ -375,27 +376,15 @@ const OrderPage = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Город *
                       </label>
-                      <select
+                      <SearchableCitySelect
                         name="cdekCity"
                         value={formData.cdekCity}
-                        onChange={(e) => {
-                          const selectedCity = cities.find(
-                            (city) => city.city === e.target.value
-                          );
-                          if (selectedCity) {
-                            handleCitySelect(selectedCity);
-                          }
-                        }}
+                        cities={cities} // [{ code, city, region }]
                         required={formData.deliveryType === "cdek_office"}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="">Выберите город</option>
-                        {cities.map((city) => (
-                          <option key={city.code} value={city.city}>
-                            {city.city} ({city.region})
-                          </option>
-                        ))}
-                      </select>
+                        onSelect={(selectedCity) => {
+                          handleCitySelect(selectedCity); // как и раньше
+                        }}
+                      />
                     </div>
 
                     {formData.cdekCityCode > 0 && (
