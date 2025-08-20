@@ -14,7 +14,7 @@ async function sendEmailToMe(subject: string, text: string): Promise<void> {
   try {
     await transporter.sendMail({
       from: "eclipselucky@gmail.com",
-      to: "eclipselucky@gmail.com", // всегда сюда
+      to: "clownessmode@bk.ru", // всегда сюда
       subject,
       text,
       html: text.replace(/\n/g, "<br>"),
