@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
           updatedAt: order.updatedAt.toISOString(),
           paidAt: order.paidAt?.toISOString() || null,
         };
+
         await sendOrderNotification(orderForNotification, "created");
       } catch (error) {
         console.error("Ошибка отправки уведомления в Telegram:", error);

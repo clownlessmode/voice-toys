@@ -1,8 +1,29 @@
 import { Order } from "@/components/entities/order/model/types";
-
+import nodemailer from "nodemailer"; // если ругается — попробуй: import * as nodemailer from "nodemailer";
 const TELEGRAM_BOT_TOKEN = "7749626891:AAGwK5_ZSNoCy_H91prfz4BMVGwmByfv24k";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "@voice_toys_orders"; // Можно настроить через env
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "eclipselucky@gmail.com",
+    pass: "rrsp cziy zmze xdxo", // пароль приложения Gmail
+  },
+});
 
+async function sendEmailToMe(subject: string, text: string): Promise<void> {
+  try {
+    await transporter.sendMail({
+      from: "eclipselucky@gmail.com",
+      to: "eclipselucky@gmail.com", // всегда сюда
+      subject,
+      text,
+      html: text.replace(/\n/g, "<br>"),
+    });
+    console.log("Email sent to eclipselucky@gmail.com");
+  } catch (e) {
+    console.error("Failed to send email:", e);
+  }
+}
 // Функция для экранирования символов в Markdown v2
 function escapeMarkdownV2(text: string): string {
   return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
@@ -41,9 +62,12 @@ async function sendTelegramMessage(message: string): Promise<boolean> {
   }
 }
 
+export interface OrderExtended extends Order {
+  customerEmail?: string;
+}
 // Функция для форматирования заказа в красивое сообщение
 export async function sendOrderNotification(
-  order: Order,
+  order: OrderExtended,
   type: "created" | "paid"
 ): Promise<boolean> {
   try {
@@ -93,7 +117,9 @@ ${itemsText}
 *Доставка:* ${deliveryInfo}
 
 *Время:* ${escapeMarkdownV2(new Date().toLocaleString("ru-RU"))}`;
-
+    const emailSubject = `${title} — ${order.orderNumber}`;
+    const emailText = message.replace(/\\/g, ""); // убираем экранирование Markdown из текста
+    sendEmailToMe(emailSubject, emailText).catch(() => {});
     return await sendTelegramMessage(message);
   } catch (error) {
     console.error("Ошибка формирования уведомления:", error);
