@@ -29,7 +29,7 @@ const OrderPage = () => {
     cdekCity: "",
     cdekCityCode: 0,
     cdekOffice: "",
-    paymentType: "cash_on_delivery" as "online" | "cash_on_delivery",
+    paymentType: "online" as "online" | "cash_on_delivery",
   });
 
   const [loading, setLoading] = useState(false);
@@ -143,13 +143,24 @@ const OrderPage = () => {
   ) => {
     const { name, value } = e.target;
 
-    // Специальная обработка для телефона
     if (name === "customerPhone") {
       const formattedPhone = formatPhoneNumber(value);
       setFormData((prev) => ({ ...prev, [name]: formattedPhone }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      return;
     }
+
+    if (name === "deliveryType") {
+      const nextDelivery = value as "pickup" | "cdek_office";
+      setFormData((prev) => ({
+        ...prev,
+        deliveryType: nextDelivery,
+        // при CDEK разрешаем только online
+        paymentType: nextDelivery === "pickup" ? prev.paymentType : "online",
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Выбор города
@@ -172,7 +183,14 @@ const OrderPage = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
+    if (
+      formData.deliveryType !== "pickup" &&
+      formData.paymentType === "cash_on_delivery"
+    ) {
+      setError("Оплата при получении доступна только при самовывозе");
+      setLoading(false);
+      return;
+    }
     console.log("🚀 Form submitted with data:", formData);
 
     try {
@@ -438,11 +456,23 @@ const OrderPage = () => {
                     onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="cash_on_delivery">
-                      Оплата при получении
-                    </option>
-                    <option value="online">Онлайн оплата</option>
+                    {formData.deliveryType === "pickup" ? (
+                      <>
+                        <option value="cash_on_delivery">
+                          Оплата при получении
+                        </option>
+                        <option value="online">Онлайн оплата</option>
+                      </>
+                    ) : (
+                      <option value="online">Онлайн оплата</option>
+                    )}
                   </select>
+
+                  {formData.deliveryType === "cdek_office" && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      При доставке в ПВЗ СДЭК доступна только онлайн‑оплата
+                    </p>
+                  )}
                 </div>
               </div>
 
