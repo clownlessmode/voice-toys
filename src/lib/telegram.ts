@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Order } from "@/components/entities/order/model/types";
 import nodemailer from "nodemailer"; // если ругается — попробуй: import * as nodemailer from "nodemailer";
 const TELEGRAM_BOT_TOKEN = "7749626891:AAGwK5_ZSNoCy_H91prfz4BMVGwmByfv24k";
@@ -8,20 +9,49 @@ const transporter = nodemailer.createTransport({
     user: "eclipselucky@gmail.com",
     pass: "rrsp cziy zmze xdxo", // пароль приложения Gmail
   },
+  logger: true, // общий лог
+  debug: true, // SMTP-трафик
 });
 
+// Проверка подключения и авторизации (1 раз при старте)
+transporter
+  .verify()
+  .then(() => console.log("[MAIL] Transport ready (verify ok)"))
+  .catch((err) =>
+    console.error("[MAIL] Transport verify failed:", err?.message || err)
+  );
+
 async function sendEmailToMe(subject: string, text: string): Promise<void> {
+  const to = "clownessmode@bk.ru"; // оставляю как в твоём коде (если нужно на другой адрес — поменяй тут)
+  const mailOptions = {
+    from: "eclipselucky@gmail.com",
+    to,
+    subject,
+    text,
+    html: text.replace(/\n/g, "<br>"),
+  };
+
+  const start = Date.now();
+  console.log(
+    `[MAIL] Try send -> to=${to} subject="${subject}" text_len=${text.length}`
+  );
+
   try {
-    await transporter.sendMail({
-      from: "eclipselucky@gmail.com",
-      to: "clownessmode@bk.ru", // всегда сюда
-      subject,
-      text,
-      html: text.replace(/\n/g, "<br>"),
-    });
-    console.log("Email sent to eclipselucky@gmail.com");
-  } catch (e) {
-    console.error("Failed to send email:", e);
+    const info = await transporter.sendMail(mailOptions);
+    const ms = Date.now() - start;
+
+    console.log(`[MAIL] SENT ok in ${ms}ms id=${info.messageId}`);
+    if (info.response) console.log(`[MAIL] response: ${info.response}`);
+    if (info.accepted?.length)
+      console.log(`[MAIL] accepted: ${info.accepted.join(", ")}`);
+    if (info.rejected?.length)
+      console.warn(`[MAIL] rejected: ${info.rejected.join(", ")}`);
+    if (info.envelope) console.log("[MAIL] envelope:", info.envelope);
+  } catch (e: any) {
+    const ms = Date.now() - start;
+    console.error(`[MAIL] FAIL in ${ms}ms: ${e?.message || e}`);
+    if (e?.response) console.error(`[MAIL] smtp response: ${e.response}`);
+    if (e?.code) console.error(`[MAIL] code: ${e.code} command: ${e.command}`);
   }
 }
 // Функция для экранирования символов в Markdown v2
