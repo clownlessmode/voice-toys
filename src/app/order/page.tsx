@@ -10,6 +10,7 @@ import Descriptor from "@/components/ui/typography/Descriptor";
 import Button1 from "@/components/ui/typography/Button1";
 import Header from "@/components/widgets/Header";
 import Footer from "@/components/widgets/Footer";
+import PromoCodeInput from "@/components/ui/components/PromoCodeInput";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { cities } from "./cities";
@@ -32,6 +33,13 @@ const OrderPage = () => {
     paymentType: "online" as "online" | "cash_on_delivery",
   });
 
+  // Состояние для промокода
+  const [promoCodeData, setPromoCodeData] = useState({
+    promoCodeId: null as string | null,
+    discountAmount: 0,
+    originalAmount: totalPrice,
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,6 +51,38 @@ const OrderPage = () => {
   } = useCdekOffices(
     formData.deliveryType === "cdek_office" ? formData.cdekCity : undefined
   );
+
+  // Обновляем originalAmount при изменении totalPrice
+  useEffect(() => {
+    setPromoCodeData((prev) => ({
+      ...prev,
+      originalAmount: totalPrice,
+    }));
+  }, [totalPrice]);
+
+  // Функция применения промокода
+  const handlePromoCodeApply = (
+    discountAmount: number,
+    promoCodeId: string
+  ) => {
+    setPromoCodeData({
+      promoCodeId,
+      discountAmount,
+      originalAmount: totalPrice,
+    });
+  };
+
+  // Функция удаления промокода
+  const handlePromoCodeRemove = () => {
+    setPromoCodeData({
+      promoCodeId: null,
+      discountAmount: 0,
+      originalAmount: totalPrice,
+    });
+  };
+
+  // Рассчитываем итоговую сумму с учетом скидки
+  const finalPrice = Math.max(0, totalPrice - promoCodeData.discountAmount);
 
   // Геолокация и автозаполнение ближайшего города
   useEffect(() => {
@@ -201,6 +241,10 @@ const OrderPage = () => {
           productId: item.product.id,
           quantity: item.quantity,
         })),
+        // Добавляем данные промокода
+        originalAmount: promoCodeData.originalAmount,
+        discountAmount: promoCodeData.discountAmount,
+        promoCodeId: promoCodeData.promoCodeId,
       };
 
       // Если выбран CDEK, формируем адрес доставки автоматически
@@ -442,6 +486,17 @@ const OrderPage = () => {
                 )}
               </div>
 
+              {/* Промокод */}
+              <div className="space-y-4">
+                <H2 className="text-lg">Промокод</H2>
+                <PromoCodeInput
+                  onApply={handlePromoCodeApply}
+                  onRemove={handlePromoCodeRemove}
+                  orderAmount={totalPrice}
+                  className="w-full"
+                />
+              </div>
+
               {/* Способ оплаты */}
               <div className="space-y-4">
                 <H2 className="text-lg">Способ оплаты</H2>
@@ -511,11 +566,30 @@ const OrderPage = () => {
               ))}
             </div>
 
+            {/* Показываем скидку если применен промокод */}
+            {promoCodeData.discountAmount > 0 && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Скидка по промокоду:</span>
+                  <span className="text-green-600">
+                    -{promoCodeData.discountAmount} ₽
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="border-t pt-4 mt-4">
               <div className="flex justify-between items-center text-lg font-semibold">
                 <span>Итого:</span>
-                <span>{totalPrice} ₽</span>
+                <span>{finalPrice} ₽</span>
               </div>
+
+              {/* Показываем экономию */}
+              {promoCodeData.discountAmount > 0 && (
+                <div className="text-sm text-green-600 mt-1">
+                  Экономия: {promoCodeData.discountAmount} ₽
+                </div>
+              )}
             </div>
           </div>
         </div>

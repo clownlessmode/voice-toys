@@ -61,6 +61,12 @@ model Order {
   totalAmount   Float
   currency      String  @default("₽")
   
+  // Промокод
+  promoCodeId   String?  // ID использованного промокода
+  promoCode     PromoCode? @relation(fields: [promoCodeId], references: [id])
+  discountAmount Float?   // Сумма скидки по промокоду
+  originalAmount Float?   // Исходная сумма заказа
+  
   // Товары в заказе
   items         OrderItem[]
   
@@ -91,4 +97,31 @@ enum OrderStatus {
   SHIPPED    // Отправлен
   DELIVERED  // Доставлен
   CANCELLED  // Отменен
+}
+
+model PromoCode {
+  id          String   @id @default(cuid())
+  code        String   @unique // Уникальный код промокода
+  name        String   // Название промокода
+  description String?  // Описание
+  type        PromoCodeType // Тип промокода
+  value       Float    // Значение (процент или сумма в рублях)
+  minOrderAmount Float?  // Минимальная сумма заказа для применения
+  maxUses     Int?     // Максимальное количество использований
+  currentUses Int      @default(0) // Текущее количество использований
+  validFrom   DateTime @default(now()) // Дата начала действия
+  validUntil  DateTime // Дата окончания действия
+  isActive    Boolean  @default(true) // Активен ли промокод
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Связи
+  orders     Order[]  // Заказы, где использовался промокод
+
+  @@map("promo_codes")
+}
+
+enum PromoCodeType {
+  PERCENTAGE // Скидка в процентах
+  FIXED_AMOUNT // Скидка в рублях
 }

@@ -27,6 +27,9 @@ export interface Order {
   deliveryType: string;
   deliveryAddress?: string;
   totalAmount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  promoCodeId?: string;
   currency: string;
   items: OrderItem[];
   createdAt: string;
@@ -40,6 +43,9 @@ export interface CreateOrderRequest {
   customerEmail?: string;
   deliveryType: "pickup" | "delivery";
   deliveryAddress?: string;
+  originalAmount?: number;
+  discountAmount?: number;
+  promoCodeId?: string;
   items: Array<{
     productId: string;
     quantity: number;

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getProducts } from "@/components/entities/product";
 import { Package, ShoppingCart, TrendingUp, Users } from "lucide-react";
+import Link from "next/link";
 
 interface ActivityItem {
   title: string;
@@ -114,11 +115,20 @@ export default function AdminDashboard() {
 
         // Подсчитываем статистику
         const revenue = ordersData.orders
-          .filter((order: any) => order.status === "PAID")
-          .reduce((sum: number, order: any) => sum + order.totalAmount, 0);
+          .filter(
+            (order: { status: string; totalAmount: number }) =>
+              order.status === "PAID"
+          )
+          .reduce(
+            (sum: number, order: { totalAmount: number }) =>
+              sum + order.totalAmount,
+            0
+          );
 
         const uniqueCustomers = new Set(
-          ordersData.orders.map((order: any) => order.customerPhone)
+          ordersData.orders.map(
+            (order: { customerPhone: string }) => order.customerPhone
+          )
         ).size;
 
         setStats({
@@ -135,42 +145,52 @@ export default function AdminDashboard() {
         // Последние заказы
         const recentOrders = ordersData.orders
           .sort(
-            (a: any, b: any) =>
+            (a: { updatedAt: string }, b: { updatedAt: string }) =>
               new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           )
           .slice(0, 3);
 
-        recentOrders.forEach((order: any) => {
-          if (order.status === "PAID" && order.paidAt) {
-            activities.push({
-              title: `Заказ ${order.orderNumber} оплачен`,
-              subtitle: `${
-                order.customerName
-              } - ₽${order.totalAmount.toLocaleString("ru-RU")}`,
-              time: formatTime(order.paidAt),
-              type: "payment",
-              color: "bg-green-100 text-green-800",
-            });
-          } else if (order.updatedAt !== order.createdAt) {
-            activities.push({
-              title: `Заказ ${order.orderNumber} обновлен`,
-              subtitle: getStatusText(order.status),
-              time: formatTime(order.updatedAt),
-              type: "order",
-              color: "bg-blue-100 text-blue-800",
-            });
-          } else {
-            activities.push({
-              title: `Новый заказ ${order.orderNumber}`,
-              subtitle: `${
-                order.customerName
-              } - ₽${order.totalAmount.toLocaleString("ru-RU")}`,
-              time: formatTime(order.createdAt),
-              type: "order",
-              color: "bg-yellow-100 text-yellow-800",
-            });
+        recentOrders.forEach(
+          (order: {
+            status: string;
+            paidAt?: string;
+            orderNumber: string;
+            customerName: string;
+            totalAmount: number;
+            updatedAt: string;
+            createdAt: string;
+          }) => {
+            if (order.status === "PAID" && order.paidAt) {
+              activities.push({
+                title: `Заказ ${order.orderNumber} оплачен`,
+                subtitle: `${
+                  order.customerName
+                } - ₽${order.totalAmount.toLocaleString("ru-RU")}`,
+                time: formatTime(order.paidAt),
+                type: "payment",
+                color: "bg-green-100 text-green-800",
+              });
+            } else if (order.updatedAt !== order.createdAt) {
+              activities.push({
+                title: `Заказ ${order.orderNumber} обновлен`,
+                subtitle: getStatusText(order.status),
+                time: formatTime(order.updatedAt),
+                type: "order",
+                color: "bg-blue-100 text-blue-800",
+              });
+            } else {
+              activities.push({
+                title: `Новый заказ ${order.orderNumber}`,
+                subtitle: `${
+                  order.customerName
+                } - ₽${order.totalAmount.toLocaleString("ru-RU")}`,
+                time: formatTime(order.createdAt),
+                type: "order",
+                color: "bg-yellow-100 text-yellow-800",
+              });
+            }
           }
-        });
+        );
 
         setRecentActivity(
           activities
@@ -248,30 +268,30 @@ export default function AdminDashboard() {
             Быстрые действия
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <a
+            <Link
               href="/admin/orders"
               className="bg-primary text-white px-4 py-3 rounded-md text-center hover:bg-primary/90 transition-colors"
             >
               Просмотр заказов
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/products/new"
               className="bg-gray-100 text-gray-900 px-4 py-3 rounded-md text-center hover:bg-gray-200 transition-colors"
             >
               Добавить продукт
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/products"
               className="bg-gray-100 text-gray-900 px-4 py-3 rounded-md text-center hover:bg-gray-200 transition-colors"
             >
               Управление продуктами
-            </a>
-            <a
+            </Link>
+            <Link
               href="/admin/orders"
               className="bg-gray-100 text-gray-900 px-4 py-3 rounded-md text-center hover:bg-gray-200 transition-colors"
             >
               Экспорт в Excel
-            </a>
+            </Link>
           </div>
         </div>
       </div>

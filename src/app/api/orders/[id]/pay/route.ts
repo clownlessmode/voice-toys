@@ -153,7 +153,7 @@ export async function POST(
       );
     }
 
-    // Обновляем статус на оплачен
+    // Обновляем статус на оплачен и увеличиваем счетчик использований промокода
     const paidOrder = await prisma.order.update({
       where: { id },
       data: {
@@ -170,8 +170,21 @@ export async function POST(
             },
           },
         },
+        promoCode: true,
       },
     });
+
+    // Увеличиваем счетчик использований промокода
+    if (paidOrder.promoCodeId) {
+      await prisma.promoCode.update({
+        where: { id: paidOrder.promoCodeId },
+        data: {
+          currentUses: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     const transformedOrder = transformOrderFromDB(paidOrder);
 

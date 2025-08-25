@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
         deliveryType: data.deliveryType,
         deliveryAddress: data.deliveryAddress,
         totalAmount,
+        originalAmount: data.originalAmount || totalAmount,
+        discountAmount: data.discountAmount || 0,
+        promoCodeId: data.promoCodeId || null,
         currency: data.currency || "₽",
         items: {
           create: orderItems,

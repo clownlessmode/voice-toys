@@ -29,6 +29,11 @@ export default function AdminLayout({
       icon: Package,
     },
     {
+      name: "Промокоды",
+      href: "/admin/promo-codes",
+      icon: Package,
+    },
+    {
       name: "Добавить продукт",
       href: "/admin/products/new",
       icon: Plus,
