@@ -270,9 +270,6 @@ interface CdekOrderData {
       };
     }>;
   }>;
-  delivery_recipient_cost: {
-    value: number;
-  };
 }
 
 export async function registerCdekOrder(
@@ -523,8 +520,5 @@ export async function prepareCdekData(
         items: cdekItems,
       },
     ],
-    delivery_recipient_cost: {
-      value: deliveryPrice, // Стоимость доставки
-    },
   };
 }

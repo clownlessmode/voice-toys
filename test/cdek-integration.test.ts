@@ -154,9 +154,6 @@ describe("CDEK Integration", () => {
           ],
         },
       ],
-      delivery_recipient_cost: {
-        value: 500,
-      },
     };
 
     const result = await registerCdekOrder(cdekData);
@@ -176,7 +173,6 @@ describe("CDEK Integration", () => {
       delivery_point: "123456",
       tariff_code: 136,
       packages: [{ number: "test", weight: 1000, items: [] }],
-      delivery_recipient_cost: { value: 500 },
     };
 
     const result = await registerCdekOrder(cdekData);

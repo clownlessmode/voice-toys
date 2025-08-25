@@ -157,9 +157,6 @@ async function testCdekWithCorrectOffice() {
           items: cdekItems,
         },
       ],
-      delivery_recipient_cost: {
-        value: 0, // Временно 0
-      },
     };
 
     console.log("\n📤 CDEK data with correct office code:");

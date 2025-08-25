@@ -162,9 +162,6 @@ async function testCdekWithArticle() {
           items: cdekItems,
         },
       ],
-      delivery_recipient_cost: {
-        value: 0,
-      },
     };
 
     console.log("\n📤 Expected CDEK data (with article fix):");

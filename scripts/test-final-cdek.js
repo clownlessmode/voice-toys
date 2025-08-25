@@ -154,9 +154,6 @@ async function testFinalCdek() {
           items: cdekItems,
         },
       ],
-      delivery_recipient_cost: {
-        value: 0,
-      },
     };
 
     console.log("\n📤 CDEK data with weight in grams:");
