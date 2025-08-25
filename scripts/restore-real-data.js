@@ -115,21 +115,61 @@ async function restoreData() {
       });
     }
     
-    // Получаем все данные
-    const products = await query('SELECT * FROM products');
-    console.log(\`📦 Найдено продуктов: \${products.length}\`);
+    // Функция для проверки существования таблицы
+    function tableExists(tableName) {
+      return new Promise((resolve) => {
+        oldDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [tableName], (err, row) => {
+          resolve(!err && row);
+        });
+      });
+    }
     
-    const characteristics = await query('SELECT * FROM product_characteristics');
-    console.log(\`🔍 Найдено характеристик: \${characteristics.length}\`);
+    // Получаем все данные с проверкой существования таблиц
+    let products = [];
+    let characteristics = [];
+    let orders = [];
+    let orderItems = [];
+    let promoCodes = [];
     
-    const orders = await query('SELECT * FROM orders');
-    console.log(\`📋 Найдено заказов: \${orders.length}\`);
+    // Проверяем и получаем продукты
+    if (await tableExists('products')) {
+      products = await query('SELECT * FROM products');
+      console.log(\`📦 Найдено продуктов: \${products.length}\`);
+    } else {
+      console.log('⚠️ Таблица products не найдена, пропускаем');
+    }
     
-    const orderItems = await query('SELECT * FROM order_items');
-    console.log(\`📦 Найдено элементов заказов: \${orderItems.length}\`);
+    // Проверяем и получаем характеристики
+    if (await tableExists('product_characteristics')) {
+      characteristics = await query('SELECT * FROM product_characteristics');
+      console.log(\`🔍 Найдено характеристик: \${characteristics.length}\`);
+    } else {
+      console.log('⚠️ Таблица product_characteristics не найдена, пропускаем');
+    }
     
-    const promoCodes = await query('SELECT * FROM promo_codes');
-    console.log(\`🎫 Найдено промокодов: \${promoCodes.length}\`);
+    // Проверяем и получаем заказы
+    if (await tableExists('orders')) {
+      orders = await query('SELECT * FROM orders');
+      console.log(\`📋 Найдено заказов: \${orders.length}\`);
+    } else {
+      console.log('⚠️ Таблица orders не найдена, пропускаем');
+    }
+    
+    // Проверяем и получаем элементы заказов
+    if (await tableExists('order_items')) {
+      orderItems = await query('SELECT * FROM order_items');
+      console.log(\`📦 Найдено элементов заказов: \${orderItems.length}\`);
+    } else {
+      console.log('⚠️ Таблица order_items не найдена, пропускаем');
+    }
+    
+    // Проверяем и получаем промокоды (может не быть в старой схеме)
+    if (await tableExists('promo_codes')) {
+      promoCodes = await query('SELECT * FROM promo_codes');
+      console.log(\`🎫 Найдено промокодов: \${promoCodes.length}\`);
+    } else {
+      console.log('ℹ️ Таблица promo_codes не найдена (нормально для старой схемы)');
+    }
     
     // Закрываем старую БД
     oldDb.close();
@@ -145,7 +185,7 @@ async function restoreData() {
     
     console.log('🧹 Новая база данных очищена');
     
-    // Восстанавливаем промокоды
+    // Восстанавливаем промокоды (если есть)
     if (promoCodes.length > 0) {
       console.log('🎫 Восстанавливаю промокоды...');
       for (const promoCode of promoCodes) {
@@ -169,6 +209,8 @@ async function restoreData() {
         });
       }
       console.log(\`✅ Восстановлено промокодов: \${promoCodes.length}\`);
+    } else {
+      console.log('ℹ️ Промокоды для восстановления не найдены');
     }
     
     // Восстанавливаем продукты
@@ -234,9 +276,9 @@ async function restoreData() {
             deliveryAddress: order.deliveryAddress,
             totalAmount: order.totalAmount,
             currency: order.currency,
-            promoCodeId: order.promoCodeId,
-            discountAmount: order.discountAmount,
-            originalAmount: order.originalAmount,
+            promoCodeId: order.promoCodeId || null,
+            discountAmount: order.discountAmount || 0,
+            originalAmount: order.originalAmount || order.totalAmount,
             createdAt: new Date(order.createdAt),
             updatedAt: new Date(order.updatedAt),
             paidAt: order.paidAt ? new Date(order.paidAt) : null
