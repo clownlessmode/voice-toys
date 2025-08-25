@@ -294,22 +294,6 @@ function restoreDataFromBackup() {
     // Создаем скрипт восстановления
     const restoreScript = createDataRestoreScript();
 
-    // Устанавливаем зависимости если нужно
-    log("Проверяю зависимости...");
-    try {
-      execSync("npm list sqlite3", { stdio: "ignore" });
-    } catch {
-      log("Устанавливаю sqlite3...");
-      runCommand("npm install sqlite3", "Установка sqlite3");
-    }
-
-    try {
-      execSync("npm list tsx", { stdio: "ignore" });
-    } catch {
-      log("Устанавливаю tsx...");
-      runCommand("npm install -D tsx", "Установка tsx");
-    }
-
     // Запускаем скрипт восстановления
     log("Запускаю скрипт восстановления данных...");
     if (runCommand("npx tsx restore-data.ts", "Восстановление данных")) {
