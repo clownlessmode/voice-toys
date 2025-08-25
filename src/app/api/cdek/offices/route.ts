@@ -16,7 +16,7 @@ interface CdekDeliveryPoint {
 let cdekToken: string | null = null;
 let tokenExpiresAt: number | null = null;
 
-async function fetchCdekToken(): Promise<string> {
+export async function fetchCdekToken(): Promise<string> {
   if (cdekToken && tokenExpiresAt && Date.now() < tokenExpiresAt) {
     return cdekToken;
   }
@@ -74,7 +74,7 @@ async function fetchCdekOffices(
   if (response.status === 401) {
     token = await fetchCdekToken();
     response = await fetch(
-      `https://api.edu.cdek.ru/v2/deliverypoints?city_code=${cityCode}&size=1000`,
+      `https://api.cdek.ru/v2/deliverypoints?city_code=${cityCode}&size=1000`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
   }

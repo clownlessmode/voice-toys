@@ -60,7 +60,11 @@ export async function GET(request: NextRequest) {
         include: {
           items: {
             include: {
-              product: true,
+              product: {
+                include: {
+                  characteristics: true,
+                },
+              },
             },
           },
         },
