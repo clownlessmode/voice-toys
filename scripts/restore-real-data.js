@@ -227,7 +227,7 @@ async function restoreData() {
             oldPrice: product.oldPrice,
             discountPercent: product.discountPercent,
             currency: product.currency,
-            favorite: product.favorite,
+            favorite: Boolean(product.favorite), // Конвертируем 0/1 в boolean
             pickupAvailability: product.pickupAvailability,
             deliveryAvailability: product.deliveryAvailability,
             returnDays: product.returnDays,
