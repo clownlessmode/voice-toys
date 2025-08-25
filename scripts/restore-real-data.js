@@ -93,7 +93,6 @@ function createDataRestoreScript() {
 
 const { PrismaClient } = require('@prisma/client');
 const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
 
 const prisma = new PrismaClient();
 
@@ -102,34 +101,38 @@ async function restoreData() {
   
   try {
     // Открываем старую базу данных
-    const oldDb = await open({
-      filename: './prisma-backup/dev.db',
-      driver: sqlite3.Database
-    });
+    const oldDb = new sqlite3.Database('./prisma-backup/dev.db', sqlite3.OPEN_READONLY);
     
     console.log('📊 Получаю данные из старой базы...');
     
-    // Получаем все продукты
-    const products = await oldDb.all('SELECT * FROM products');
+    // Функция для выполнения SQL запросов
+    function query(sql) {
+      return new Promise((resolve, reject) => {
+        oldDb.all(sql, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+    }
+    
+    // Получаем все данные
+    const products = await query('SELECT * FROM products');
     console.log(\`📦 Найдено продуктов: \${products.length}\`);
     
-    // Получаем все характеристики продуктов
-    const characteristics = await oldDb.all('SELECT * FROM product_characteristics');
+    const characteristics = await query('SELECT * FROM product_characteristics');
     console.log(\`🔍 Найдено характеристик: \${characteristics.length}\`);
     
-    // Получаем все заказы
-    const orders = await oldDb.all('SELECT * FROM orders');
+    const orders = await query('SELECT * FROM orders');
     console.log(\`📋 Найдено заказов: \${orders.length}\`);
     
-    // Получаем все элементы заказов
-    const orderItems = await oldDb.all('SELECT * FROM order_items');
+    const orderItems = await query('SELECT * FROM order_items');
     console.log(\`📦 Найдено элементов заказов: \${orderItems.length}\`);
     
-    // Получаем все промокоды
-    const promoCodes = await oldDb.all('SELECT * FROM promo_codes');
+    const promoCodes = await query('SELECT * FROM promo_codes');
     console.log(\`🎫 Найдено промокодов: \${promoCodes.length}\`);
     
-    await oldDb.close();
+    // Закрываем старую БД
+    oldDb.close();
     
     console.log('\\n🔄 Восстанавливаю данные в новую базу...');
     
