@@ -84,16 +84,16 @@ function showBackupContents() {
 function createDataRestoreScript() {
   log("Создаю скрипт для восстановления данных...");
 
-  const restoreScript = `#!/usr/bin/env tsx
+  const restoreScript = `#!/usr/bin/env node
 
 /**
  * Скрипт для восстановления данных из старой базы данных
  * Запускается после обновления схемы
  */
 
-import { PrismaClient } from '@prisma/client';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+const { PrismaClient } = require('@prisma/client');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
 
 const prisma = new PrismaClient();
 
@@ -277,7 +277,7 @@ restoreData().catch((error) => {
 });
 `;
 
-  const scriptPath = "./restore-data.ts";
+  const scriptPath = "./restore-data.js";
   fs.writeFileSync(scriptPath, restoreScript);
 
   // Делаем скрипт исполняемым
@@ -296,11 +296,11 @@ function restoreDataFromBackup() {
 
     // Запускаем скрипт восстановления
     log("Запускаю скрипт восстановления данных...");
-    if (runCommand("npx tsx restore-data.ts", "Восстановление данных")) {
+    if (runCommand("node restore-data.js", "Восстановление данных")) {
       log("✅ Данные успешно восстановлены!");
 
       // Удаляем временный скрипт
-      fs.unlinkSync("./restore-data.ts");
+      fs.unlinkSync("./restore-data.js");
 
       return true;
     } else {
