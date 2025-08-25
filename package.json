@@ -26,6 +26,8 @@
     "test:promo-codes-all": "npm run test:promo-codes-api && npm run test:promo-codes-integration && npm run test:promo-codes-frontend",
     "update-schema-safely": "node scripts/update-schema-safely.js",
     "update-schema-incremental": "node scripts/update-schema-incremental.js",
+    "update-schema-with-restore": "node scripts/update-schema-with-data-restore.js",
+    "restore-data-from-backup": "node scripts/restore-data-from-backup.js",
     "db:seed": "bun run prisma/seed.ts",
     "db:seed-orders": "bun run prisma/seed-orders.ts",
     "db:reset": "bun prisma db push --force-reset && bun run db:seed"
