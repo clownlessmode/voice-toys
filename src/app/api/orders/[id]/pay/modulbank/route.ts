@@ -67,9 +67,15 @@ export async function GET(
     const successUrl = `${protocol}://${baseUrl}/order/success/${id}`;
 
     // Создаем данные для платежа с правильным success_url
+    // Используем сумму с учетом скидки по промокоду
+    const paymentAmount =
+      order.discountAmount && order.discountAmount > 0
+        ? order.totalAmount - order.discountAmount
+        : order.totalAmount;
+
     const paymentData = createPaymentData({
       orderId: order.id,
-      amount: order.totalAmount,
+      amount: paymentAmount,
       description: `Заказ №${order.orderNumber}`,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
@@ -84,7 +90,9 @@ export async function GET(
     console.log("Order:", {
       id: order.id,
       orderNumber: order.orderNumber,
-      amount: order.totalAmount,
+      totalAmount: order.totalAmount,
+      discountAmount: order.discountAmount,
+      paymentAmount: paymentAmount,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       customerEmail: order.customerEmail,

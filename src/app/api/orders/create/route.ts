@@ -55,17 +55,28 @@ export async function POST(request: NextRequest) {
     const orderNumber = generateOrderNumber();
 
     // Подсчитываем общую сумму
-    let totalAmount = 0;
+    let originalAmount = 0;
     const orderItems = data.items.map((item) => {
       const price = productPriceMap.get(item.productId) || 0;
       const itemTotal = price * item.quantity;
-      totalAmount += itemTotal;
+      originalAmount += itemTotal;
 
       return {
         productId: item.productId,
         quantity: item.quantity,
         price: price,
       };
+    });
+
+    // Рассчитываем итоговую сумму с учетом скидки
+    const discountAmount = data.discountAmount || 0;
+    const totalAmount = Math.max(0, originalAmount - discountAmount);
+
+    console.log("💰 Order amounts calculation:", {
+      originalAmount,
+      discountAmount,
+      totalAmount,
+      promoCodeId: data.promoCodeId,
     });
 
     // Создаем заказ напрямую в базе данных
@@ -78,8 +89,8 @@ export async function POST(request: NextRequest) {
         deliveryType: data.deliveryType,
         deliveryAddress: data.deliveryAddress,
         totalAmount,
-        originalAmount: data.originalAmount || totalAmount,
-        discountAmount: data.discountAmount || 0,
+        originalAmount: originalAmount,
+        discountAmount: discountAmount,
         promoCodeId: data.promoCodeId || null,
         currency: data.currency || "₽",
         items: {
