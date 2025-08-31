@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
     user: "eclipselucky@gmail.com",
     pass: "rrsp cziy zmze xdxo", // пароль приложения Gmail
   },
-  logger: true, // общий лог
+  logger: false, // общий лог
   debug: true, // SMTP-трафик
 });
 

@@ -258,9 +258,10 @@ const OrderPage = () => {
           (office) => office.code === formData.cdekOffice
         );
         if (selectedOffice) {
+          // Сохраняем код офиса и код города для CDEK интеграции
           orderData = {
             ...orderData,
-            deliveryAddress: `CDEK ${formData.cdekCity} ${selectedOffice.location.address}`,
+            deliveryAddress: `CDEK ${formData.cdekCity} ${selectedOffice.location.address} (${selectedOffice.code}|${formData.cdekCityCode})`,
           };
         }
       }

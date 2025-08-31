@@ -198,6 +198,35 @@ export default function EditProduct() {
     setForm({ ...form, characteristics: newCharacteristics });
   };
 
+  const handleReorderAll = (fromIndex: number, toIndex: number) => {
+    // Создаем объединенный массив всех изображений
+    const allImages = [
+      ...uploadedFiles.map((file) => file.url),
+      ...form.images.filter((img) => img.trim() !== ""),
+    ];
+
+    // Перемещаем элемент
+    const [movedImage] = allImages.splice(fromIndex, 1);
+    allImages.splice(toIndex, 0, movedImage);
+
+    // Разделяем обратно на загруженные файлы и ручные URL
+    const newUploadedFiles: UploadedFile[] = [];
+    const newManualImages: string[] = [];
+
+    allImages.forEach((imageUrl) => {
+      const uploadedFile = uploadedFiles.find((file) => file.url === imageUrl);
+      if (uploadedFile) {
+        newUploadedFiles.push(uploadedFile);
+      } else {
+        newManualImages.push(imageUrl);
+      }
+    });
+
+    // Обновляем состояние
+    setUploadedFiles(newUploadedFiles);
+    setForm({ ...form, images: newManualImages });
+  };
+
   if (initialLoading) {
     return (
       <div className="animate-pulse">
@@ -573,6 +602,7 @@ export default function EditProduct() {
                   updateImage(urlIndex, url);
                 }
               }}
+              onReorder={handleReorderAll}
               title="Все изображения товара"
               allowManualUrls={true}
             />

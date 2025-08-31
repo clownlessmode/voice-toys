@@ -12,6 +12,7 @@ interface ImageGalleryProps {
   onAdd: () => void;
   onRemove: (index: number) => void;
   onUpdate: (index: number, url: string) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   title?: string;
   allowManualUrls?: boolean;
 }
@@ -20,7 +21,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
   images,
   onAdd,
   onRemove,
-
+  onReorder,
   title = "Изображения",
   allowManualUrls = true,
 }) => {
@@ -28,6 +29,22 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     e.currentTarget.src = "/placeholder-image.png";
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const draggedIndex = parseInt(e.dataTransfer.getData("text/plain"));
+    if (!isNaN(draggedIndex) && draggedIndex !== dropIndex && onReorder) {
+      onReorder(draggedIndex, dropIndex);
+    }
   };
 
   return (
@@ -55,7 +72,13 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
           {images.map((image, index) => (
             <div
               key={index}
-              className="relative group border border-gray-200 rounded-lg overflow-hidden bg-white"
+              draggable={onReorder !== undefined}
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, index)}
+              className={`relative group border border-gray-200 rounded-lg overflow-hidden bg-white ${
+                onReorder !== undefined ? "cursor-move" : ""
+              }`}
             >
               {/* Превью изображения */}
               <div className="aspect-square bg-gray-100 relative">

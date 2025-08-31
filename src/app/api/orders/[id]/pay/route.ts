@@ -37,18 +37,37 @@ interface CdekOffice {
 // Функция для получения офисов СДЭК
 async function getCdekOffices(cityCode: number): Promise<CdekOffice[]> {
   const token = await fetchCdekToken();
-  const response = await fetch(
-    `${CDEK_API_URLS.production}/deliverypoints?city_code=${cityCode}&size=1000`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
+  const url = `${CDEK_API_URLS.production}/deliverypoints?city_code=${cityCode}&size=1000`;
+
+  console.log("🔍 Fetching CDEK offices from:", url);
+  console.log("🔍 City code:", cityCode);
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  console.log("🔍 CDEK offices response status:", response.status);
+  console.log(
+    "🔍 CDEK offices response headers:",
+    Object.fromEntries(response.headers.entries())
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch CDEK offices: ${response.status}`);
+    const errorText = await response.text();
+    console.error("❌ CDEK offices API error:", {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+    });
+    throw new Error(
+      `Failed to fetch CDEK offices: ${response.status} - ${errorText}`
+    );
   }
 
-  return response.json();
+  const offices = await response.json();
+  console.log("🔍 CDEK offices response:", JSON.stringify(offices, null, 2));
+
+  return offices;
 }
 
 // POST - Оплата заказа (webhook для платежной системы)
@@ -188,14 +207,48 @@ export async function POST(
 
     const transformedOrder = transformOrderFromDB(paidOrder);
 
+    console.log("📋 Full paid order data:", {
+      id: paidOrder.id,
+      orderNumber: paidOrder.orderNumber,
+      status: paidOrder.status,
+      deliveryType: paidOrder.deliveryType,
+      deliveryAddress: paidOrder.deliveryAddress,
+      customerName: paidOrder.customerName,
+      customerPhone: paidOrder.customerPhone,
+      itemsCount: paidOrder.items.length,
+      totalAmount: paidOrder.totalAmount,
+    });
+
     // Отправляем уведомление в Telegram
     try {
       await sendOrderNotification(transformedOrder, "paid");
       console.log("✅ Telegram notification sent successfully");
+    } catch (error) {
+      console.error("❌ Error sending Telegram notification:", error);
+      // Не блокируем обработку платежа из-за ошибки уведомления
+    }
+
+    // Создаем заказ в CDEK если это доставка
+    try {
+      console.log("🔍 CDEK registration check:", {
+        deliveryType: paidOrder.deliveryType,
+        deliveryAddress: paidOrder.deliveryAddress,
+        hasDeliveryType: !!paidOrder.deliveryType,
+        hasDeliveryAddress: !!paidOrder.deliveryAddress,
+        deliveryTypeMatch: paidOrder.deliveryType === "delivery",
+        fullOrder: {
+          id: paidOrder.id,
+          orderNumber: paidOrder.orderNumber,
+          deliveryType: paidOrder.deliveryType,
+          deliveryAddress: paidOrder.deliveryAddress,
+          status: paidOrder.status,
+        },
+      });
 
       if (
-        transformedOrder.deliveryType === "delivery" &&
-        transformedOrder.deliveryAddress
+        (paidOrder.deliveryType === "delivery" ||
+          paidOrder.deliveryType === "cdek_office") &&
+        paidOrder.deliveryAddress
       ) {
         console.log("🚚 Preparing CDEK order for delivery...");
         const cdekData = await prepareCdekData(paidOrder);
@@ -218,11 +271,8 @@ export async function POST(
         );
       }
     } catch (error) {
-      console.error(
-        "❌ Error sending Telegram notification or registering CDEK order:",
-        error
-      );
-      // Не блокируем обработку платежа из-за ошибки уведомления
+      console.error("❌ Error registering CDEK order:", error);
+      // Не блокируем обработку платежа из-за ошибки CDEK
     }
 
     return NextResponse.json({
@@ -384,24 +434,33 @@ export async function prepareCdekData(
   const phoneNumber = order.customerPhone.replace(/\D/g, "").slice(-10);
   console.log("Preparing CDEK data for order:", order);
 
-  // Получаем офисы СДЭК для города
-  const cityCode = Number(order.deliveryAddress);
-  console.log("🏪 Getting CDEK offices for city code:", cityCode);
-
-  const offices = await getCdekOffices(cityCode);
-  console.log("🏪 Found CDEK offices:", offices.length);
-
-  if (offices.length === 0) {
-    throw new Error(`No CDEK offices found for city code: ${cityCode}`);
+  // Извлекаем данные офиса из адреса (формат: "CDEK Город Адрес (КОД_ОФИСА|КОД_ГОРОДА)")
+  if (!order.deliveryAddress) {
+    throw new Error("Delivery address is required for CDEK integration");
   }
 
-  // Выбираем первый доступный офис
-  const selectedOffice = offices[0];
-  console.log("🏪 Selected office:", {
-    code: selectedOffice.code,
-    address: selectedOffice.location.address,
-    type: selectedOffice.type,
-  });
+  // Ищем код офиса и код города в скобках в конце адреса
+  const addressMatch = order.deliveryAddress.match(/\(([^|]+)\|(\d+)\)$/);
+
+  let selectedOfficeCode: string;
+
+  if (addressMatch) {
+    selectedOfficeCode = addressMatch[1]; // например "KEM6"
+
+    console.log("🏙️ Found office code in address:", selectedOfficeCode);
+    console.log("🏪 Using selected office directly:", selectedOfficeCode);
+  } else {
+    // Fallback: старый формат с только кодом офиса
+    const oldFormatMatch = order.deliveryAddress.match(/\(([A-Z]{3}\d+)\)$/);
+    if (oldFormatMatch) {
+      selectedOfficeCode = oldFormatMatch[1];
+      console.log("🏙️ Found office code in old format:", selectedOfficeCode);
+    } else {
+      throw new Error(
+        `Invalid address format: ${order.deliveryAddress}. Expected format: "CDEK Город Адрес (КОД_ОФИСА|КОД_ГОРОДА)"`
+      );
+    }
+  }
 
   // Подготавливаем товары для СДЭК с реальным весом и габаритами
   const cdekItems = order.items.map((item) => {
@@ -482,11 +541,18 @@ export async function prepareCdekData(
         length: Math.max(max.length, itemDimensions.length),
       };
     },
-    { width: 35, height: 35, length: 35 }
+    { width: 0, height: 0, length: 0 } // Начинаем с нуля, чтобы не перезаписывать реальные размеры
   );
 
+  // Если все размеры остались 0 (нет характеристик), используем дефолтные
+  const finalDimensions = {
+    width: maxDimensions.width || 35,
+    height: maxDimensions.height || 35,
+    length: maxDimensions.length || 35,
+  };
+
   console.log(
-    `📦 Package dimensions: ${maxDimensions.width}x${maxDimensions.height}x${maxDimensions.length}cm`
+    `📦 Package dimensions: ${finalDimensions.width}x${finalDimensions.height}x${finalDimensions.length}cm`
   );
 
   // Рассчитываем общий вес заказа (в граммах)
@@ -497,10 +563,10 @@ export async function prepareCdekData(
   console.log(`📦 Total order weight: ${totalWeightGrams}g`);
 
   // Рассчитываем стоимость доставки (используем вес в граммах для калькулятора)
-  const deliveryPrice = await calculateDeliveryPrice(
-    cityCode,
-    totalWeightGrams
-  );
+  // const deliveryPrice = await calculateDeliveryPrice(
+  //   cityCode,
+  //   totalWeightGrams
+  // );
 
   return {
     recipient: {
@@ -508,15 +574,15 @@ export async function prepareCdekData(
       phones: [{ number: "+7" + phoneNumber }],
     },
     shipment_point: CDEK_SHIPMENT_POINT, // Код пункта отправления
-    delivery_point: selectedOffice.code, // Код офиса доставки
+    delivery_point: selectedOfficeCode, // Код офиса доставки
     tariff_code: CDEK_TARIFF_CODE, // Код тарифа СДЭК
     packages: [
       {
         number: order.orderNumber, // Номер заказа
         weight: totalWeightGrams, // Общий вес в граммах для СДЭК API
-        length: maxDimensions.length, // Длина упаковки в см
-        width: maxDimensions.width, // Ширина упаковки в см
-        height: maxDimensions.height, // Высота упаковки в см
+        length: finalDimensions.length, // Длина упаковки в см
+        width: finalDimensions.width, // Ширина упаковки в см
+        height: finalDimensions.height, // Высота упаковки в см
         items: cdekItems,
       },
     ],

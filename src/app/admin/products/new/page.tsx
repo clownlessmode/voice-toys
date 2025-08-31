@@ -55,57 +55,6 @@ export default function NewProduct() {
   });
   const [uploadedVideo, setUploadedVideo] = useState<UploadedFile | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Валидация возрастных групп
-    if (form.ageGroups.length === 0) {
-      alert("Выберите хотя бы одну возрастную группу");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Обновляем последний элемент breadcrumbs названием продукта
-      // Собираем URL изображений из загруженных файлов и введенных URL
-      const allImages = [
-        ...uploadedFiles.map((file) => file.url),
-        ...form.images.filter((img) => img.trim() !== ""),
-      ];
-
-      const updatedForm = {
-        ...form,
-        breadcrumbs: [...form.breadcrumbs.slice(0, -1), form.name],
-        images: allImages,
-        characteristics: form.characteristics.filter(
-          (char) => char.key.trim() !== "" && char.value.trim() !== ""
-        ),
-        videoUrl: form.videoUrl?.trim() || undefined,
-      };
-
-      const response = await fetch("/api/products", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedForm),
-      });
-
-      if (response.ok) {
-        router.push("/admin/products");
-      } else {
-        const error = await response.json();
-        alert(`Ошибка: ${error.error || "Не удалось создать продукт"}`);
-      }
-    } catch (error) {
-      console.error("Ошибка при создании продукта:", error);
-      alert("Ошибка при создании продукта");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const addImage = () => {
     setForm({ ...form, images: [...form.images, ""] });
   };
@@ -149,6 +98,86 @@ export default function NewProduct() {
     const newCharacteristics = [...form.characteristics];
     newCharacteristics[index][field] = value;
     setForm({ ...form, characteristics: newCharacteristics });
+  };
+
+  const handleReorderAll = (fromIndex: number, toIndex: number) => {
+    // Создаем объединенный массив всех изображений
+    const allImages = [
+      ...uploadedFiles.map((file) => file.url),
+      ...form.images.filter((img) => img.trim() !== ""),
+    ];
+
+    // Перемещаем элемент
+    const [movedImage] = allImages.splice(fromIndex, 1);
+    allImages.splice(toIndex, 0, movedImage);
+
+    // Разделяем обратно на загруженные файлы и ручные URL
+    const newUploadedFiles: UploadedFile[] = [];
+    const newManualImages: string[] = [];
+
+    allImages.forEach((imageUrl) => {
+      const uploadedFile = uploadedFiles.find((file) => file.url === imageUrl);
+      if (uploadedFile) {
+        newUploadedFiles.push(uploadedFile);
+      } else {
+        newManualImages.push(imageUrl);
+      }
+    });
+
+    // Обновляем состояние
+    setUploadedFiles(newUploadedFiles);
+    setForm({ ...form, images: newManualImages });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Валидация возрастных групп
+    if (form.ageGroups.length === 0) {
+      alert("Выберите хотя бы одну возрастную группу");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Обновляем последний элемент breadcrumbs названием продукта
+      // Собираем URL изображений в правильном порядке из текущего состояния
+      const allImages = [
+        ...uploadedFiles.map((file) => file.url),
+        ...form.images.filter((img) => img.trim() !== ""),
+      ];
+
+      const updatedForm = {
+        ...form,
+        breadcrumbs: [...form.breadcrumbs.slice(0, -1), form.name],
+        images: allImages,
+        characteristics: form.characteristics.filter(
+          (char) => char.key.trim() !== "" && char.value.trim() !== ""
+        ),
+        videoUrl: form.videoUrl?.trim() || undefined,
+      };
+
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedForm),
+      });
+
+      if (response.ok) {
+        router.push("/admin/products");
+      } else {
+        const error = await response.json();
+        alert(`Ошибка: ${error.error || "Не удалось создать продукт"}`);
+      }
+    } catch (error) {
+      console.error("Ошибка при создании продукта:", error);
+      alert("Ошибка при создании продукта");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -505,6 +534,7 @@ export default function NewProduct() {
                   updateImage(urlIndex, url);
                 }
               }}
+              onReorder={handleReorderAll}
               title="Все изображения товара"
               allowManualUrls={true}
             />
