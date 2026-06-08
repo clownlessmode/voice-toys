@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
 
     // Получаем все продукты напрямую из базы
     const allProducts = await prisma.product.findMany({
+      where: { isActive: true, price: { gt: 1 } },
       include: {
         characteristics: true,
       },

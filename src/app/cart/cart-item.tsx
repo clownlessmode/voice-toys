@@ -6,6 +6,7 @@ import React from "react";
 import { useCart, CartItem as CartItemType } from "./use-cart";
 import { useFavorites } from "@/store/favoritesStore";
 import { cn } from "@/lib/utils";
+import { getPrimaryProductImageSrc } from "@/lib/product-utils";
 
 interface Props {
   item: CartItemType;
@@ -51,7 +52,7 @@ export const CartItem = ({ item, disabledDesc, className }: Props) => {
       <div className="flex flex-col gap-[16px]">
         <Image
           className="aspect-square object-cover overflow-hidden rounded-2xl w-full h-fit"
-          src={product.images[0]}
+          src={getPrimaryProductImageSrc(product.images)}
           alt={product.name}
           width={1200}
           height={1200}

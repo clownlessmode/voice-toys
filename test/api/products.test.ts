@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll, beforeAll } from "vitest";
 import { GET, POST } from "@/app/api/products/route";
 import { GET as GetProductById, DELETE } from "@/app/api/products/[id]/route";
 import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 describe("Products API", () => {
   const baseUrl = "http://localhost:3000";
@@ -151,6 +152,99 @@ describe("Products API", () => {
 
       const response = await POST(request);
       expect(response.status).toBe(400);
+    });
+  });
+
+  const adminAuthCookie = "admin-auth=authenticated";
+
+  describe("includeInactive (isActive) gating", () => {
+    const inactiveName = "TEST-INACTIVE-INCLUDE-WB";
+    let inactiveProductId: string;
+
+    beforeAll(async () => {
+      const created = await prisma.product.create({
+        data: {
+          name: inactiveName,
+          isActive: false,
+          description: "inactive test product",
+          price: 1,
+          images: JSON.stringify([]),
+          breadcrumbs: JSON.stringify(["Тест"]),
+          pickupAvailability: "n/a",
+          deliveryAvailability: "n/a",
+          returnDetails: "n/a",
+          categories: JSON.stringify([]),
+          ageGroups: JSON.stringify([]),
+        },
+      });
+      inactiveProductId = created.id;
+    });
+
+    afterAll(async () => {
+      if (inactiveProductId) {
+        await prisma.product.deleteMany({
+          where: { id: inactiveProductId },
+        });
+      }
+    });
+
+    it("GET /api/products: default (no includeInactive) excludes inactive products", async () => {
+      const request = new NextRequest(`${baseUrl}/api/products?limit=100`);
+      const response = await GET(request);
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(
+        data.products.some((p: { id: string }) => p.id === inactiveProductId)
+      ).toBe(false);
+    });
+
+    it("GET /api/products: unauthenticated includeInactive=true does not list inactive", async () => {
+      const request = new NextRequest(
+        `${baseUrl}/api/products?includeInactive=true&limit=100`
+      );
+      const response = await GET(request);
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(
+        data.products.some((p: { id: string }) => p.id === inactiveProductId)
+      ).toBe(false);
+    });
+
+    it("GET /api/products: admin cookie + includeInactive=true includes inactive", async () => {
+      const request = new NextRequest(
+        `${baseUrl}/api/products?includeInactive=true&limit=100`,
+        { headers: { cookie: adminAuthCookie } }
+      );
+      const response = await GET(request);
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      const match = data.products.find(
+        (p: { id: string }) => p.id === inactiveProductId
+      );
+      expect(match).toBeDefined();
+      expect(match.name).toBe(inactiveName);
+    });
+
+    it("GET /api/products/[id]: unauthenticated includeInactive=true returns 404 for inactive", async () => {
+      const request = new NextRequest(
+        `${baseUrl}/api/products/${inactiveProductId}?includeInactive=true`
+      );
+      const params = Promise.resolve({ id: inactiveProductId });
+      const response = await GetProductById(request, { params });
+      expect(response.status).toBe(404);
+    });
+
+    it("GET /api/products/[id]: admin cookie + includeInactive=true returns inactive", async () => {
+      const request = new NextRequest(
+        `${baseUrl}/api/products/${inactiveProductId}?includeInactive=true`,
+        { headers: { cookie: adminAuthCookie } }
+      );
+      const params = Promise.resolve({ id: inactiveProductId });
+      const response = await GetProductById(request, { params });
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(data.id).toBe(inactiveProductId);
+      expect(data.name).toBe(inactiveName);
     });
   });
 });

@@ -269,3 +269,22 @@ export function extractProductWeightFromJson(
     return DEFAULT_PRODUCT_WEIGHT_GRAMS;
   }
 }
+
+/** Local placeholder when catalog has no valid image URL (avoids `src=""` on <img>). */
+export const PLACEHOLDER_PRODUCT_IMAGE_SRC = "/placeholder-image.png";
+
+/**
+ * First non-empty image URL, or placeholder. Use for Next/Image and <img> src.
+ */
+export function getPrimaryProductImageSrc(
+  images: string[] | undefined | null,
+  fallback: string = PLACEHOLDER_PRODUCT_IMAGE_SRC
+): string {
+  if (!images || !Array.isArray(images)) return fallback;
+  for (const raw of images) {
+    if (typeof raw !== "string") continue;
+    const url = raw.trim();
+    if (url.length > 0) return url;
+  }
+  return fallback;
+}

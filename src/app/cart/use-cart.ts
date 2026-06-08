@@ -1,6 +1,7 @@
 import { Product } from "@/components/entities/product";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { clientJsonStorage } from "@/lib/client-storage";
 
 export interface CartItem {
   product: Product;
@@ -95,7 +96,8 @@ const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: "cart-storage", // ключ для localStorage
+      name: "cart-storage",
+      storage: clientJsonStorage,
     }
   )
 );

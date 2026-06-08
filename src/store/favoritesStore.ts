@@ -1,6 +1,7 @@
 // store/favoritesStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { clientJsonStorage } from "@/lib/client-storage";
 import { Product } from "@/components/entities/product";
 
 interface FavoritesStore {
@@ -65,6 +66,7 @@ const useFavoritesStore = create<FavoritesStore>()(
     }),
     {
       name: "favorites-storage",
+      storage: clientJsonStorage,
     }
   )
 );

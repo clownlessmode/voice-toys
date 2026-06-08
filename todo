@@ -1,0 +1,2036 @@
+Авторизация через API-ключ
+
+
+API-ключи хранятся в личном кабинете в скрытом виде. Вы увидите API-ключ только при создании. Сохраните его в надёжном месте или сразу укажите в своих системах.
+Вы не сможете восстановить доступ к несохранённым API-ключам. Чтобы продолжить работу с API, создайте новый ключ.
+
+Ozon может отозвать ключ, если обнаружит подозрительную активность или слишком большую нагрузку на свои системы.
+
+Как получить доступ к Seller API
+Зарегистрируйтесь в Ozon Seller. Подробнее о регистрации в Базе знаний продавца.
+Примите оферту.
+Получите API-ключ.
+Как получить API-ключ
+Не передавайте API-ключ посторонним людям
+Запросы к API изменяют данные в вашем магазине на Ozon. Если доступ к ключу будет у посторонних, они смогут управлять вашим магазином.
+
+Чтобы получить API-ключ:
+
+В личном кабинете перейдите в Настройки → Seller API.
+Нажмите Сгенерировать ключ.
+Придумайте название для ключа и выберите его уровень доступа.
+Выберите цель использования ключа:
+для личного пользования;
+для внешнего сервиса, приложения — введите название сервиса, для которого выпускается ключ.
+Нажмите Сгенерировать.
+Срок действия ключа — 6 месяцев. После истечения срока действия сгенерируйте новый ключ в личном кабинете.
+Получите дату истечения срока действия ключа в параметре expires_at метода /v1/roles.
+
+Вы можете создать несколько API-ключей. Например, если у вас несколько пользователей с разными уровнями доступа.
+
+Отредактировать ключ
+Если вы хотите изменить разрешённые сети для ключа, в списке API-ключей выберите нужный и нажмите . Внесите изменения и нажмите Обновить.
+
+API-ключ попал в посторонние руки
+В личном кабинете перейдите в Настройки → Seller API.
+Удалите текущий API-ключ и создайте новый.
+Авторизация через OAuth-токен
+Чтобы получить OAuth-токен для доступа к Seller API, создайте частное или публичное приложение и выдайте ему доступ к вашему личному кабинету. После этого вы получите OAuth-токен, который позволит работать с методами Seller API.
+
+Используйте OAuth-токен с методами Seller API согласно уровням доступа, которые вы назначили приложению.
+
+Пример запроса:
+
+POST https://api-seller.ozon.ru/{эндпоинт метода Seller API}
+Authorization: Bearer ACCESS_TOKEN
+
+
+ключ уже стоит в OZON_API_KEY в енв
+
+Проверить доступность доставки для покупателя
+post
+/v1/delivery/check
+
+Описание и примерыКонсоль
+Проверяет доступность доставки Ozon для покупателя. Не учитывает ограничения по сумме покупки, категории товаров и географии.
+
+Request Body schema: application/json
+client_phone
+required
+string 7XXXXXXXXXX
+Номер телефона покупателя.
+
+Ответы
+200Успешно
+Response Schema: application/json
+is_possible	
+boolean
+true, если доставка доступна.
+
+defaultОшибка
+Response Schema: application/json
+code	
+integer <int32>
+Код ошибки.
+
+details	
+Array of objects
+Дополнительная информация об ошибке.
+
+message	
+string
+Описание ошибки.
+
+
+Получить список точек самовывоза
+post
+/v1/delivery/point/list
+
+Описание и примерыКонсоль
+Возвращает координаты всех точек самовывоза без объединения в кластеры.
+
+Request Body schema: application/json
+object
+Ответы
+200Список точек самовывоза
+Response Schema: application/json
+points	
+Array of objects
+Точки самовывоза.
+
+Array ()
+coordinate	
+object
+Координаты.
+
+map_point_id	
+integer <int64>
+Идентификатор точки на карте.
+
+Получить информацию о точке самовывоза
+post
+/v1/delivery/point/info
+
+Описание и примерыКонсоль
+Возвращает подробную информацию о точке самовывоза для пользователя.
+
+Request Body schema: application/json
+map_point_ids	
+Array of strings <int64> <= 100 items
+Идентификаторы точек на карте.
+
+Ответы
+200Информация о точке самовывоза
+Response Schema: application/json
+points	
+Array of objects
+Информация о пунктах самовывоза.
+
+Array ()
+delivery_method	
+object
+Метод доставки.
+
+enabled	
+boolean
+true, если пункт самовывоза доступен.
+
+Получить доступные варианты доставки
+post
+/v2/delivery/checkout
+
+Описание и примерыКонсоль
+Проверяет доступность доставки товаров на указанный адрес или в точку выдачи и отображает сроки доставки.
+
+Проверяйте наличие товаров и маршруты во время оформления заказа, чтобы точно рассчитать сроки доставки.
+
+Request Body schema: application/json
+buyer_phone	
+string
+Номер телефона покупателя.
+
+delivery_schema	
+string
+Default: "MIX"
+Enum: "MIX" "FBO" "FBS"
+Схема доставки:
+
+MIX — на выбор Ozon;
+FBO — FBO;
+FBS — FBS.
+delivery_type	
+object
+Способ доставки.
+
+items	
+Array of objects <= 1000 items
+Информация о товарах.
+
+Ответы
+200Успешно
+Response Schema: application/json
+splits	
+Array of objects
+Результат запроса.
+
+Array ()
+delivery_method	
+object
+Метод доставки.
+
+delivery_schema	
+string
+Default: "UNSPECIFIED"
+Enum: "UNSPECIFIED" "FBO" "FBS"
+Схема доставки:
+
+UNSPECIFIED — не определена;
+FBO — FBO;
+FBS — FBS.
+items	
+Array of objects
+Информация о товарах.
+
+unavailable_reason	
+string
+Default: "UNSPECIFIED"
+Enum: "UNSPECIFIED" "UNKNOWN" "OUT_OF_STOCK" "BANNED_FOR_AREA" "BANNED_FOR_LEGAL" "BANNED" "BANNED_FOR_NOT_PREMIUM" "DELIVERY_UNAVAILABLE" "BANNED_FOR_INDIVIDUAL" "INVALID_WEIGHT" "INVALID_MULTIPLICITY" "NOT_FOUND_POINTS_DARK_STORES" "INVALID_MULTI_WAREHOUSES" "MIN_PRICE" "OZONE_DELIVERY_UNAVAILABLE" "RFBS_DELIVERY_UNAVAILABLE" "HACK_COURIER_TAGS" "NO_SLA" "DELIVERY_VARIANT_IS_CLOSING" "TPL_NOT_INTEGRATED" "NOT_ALL_WAREHOUSES_ARE_SERVED" "DELIVERY_SLOTS_NOT_FOUND" "NO_ROUTE" "CAPACITY_LIMIT" "PACKAGE_MAX_VOLUME_WEIGHT_RESTRICTION" "PACKAGE_MAX_WEIGHT_RESTRICTION" "MAX_COST_RESTRICTION" "MIN_PACKAGE_WEIGHT_RESTRICTION" "MIN_COST_RESTRICTION" "MAX_DIMENSIONS_RESTRICTION" "PRODUCT_TYPES_RESTRICTION" "PRODUCT_TAGS_RESTRICTION" "SELECTED_DELIVERY_METHOD_UNAVAILABLE" "SELECTED_DELIVERY_TIMESLOT_UNAVAILABLE" "MARKETPLACE_UNAVAILABLE" "INVALID_PVZ_FOR_KGT" "LEGAL_USER_PREMIUM_SPLIT" "USER_ALREADY_HAS_PREMIUM" "WAIT_FOR_PAY_SUBSCRIPTION" "ADDRESS_NOT_SET" "PICKUP_POINT_DISABLED" "LEGAL_PREORDER" "DELIVERY_TYPE_FOR_PREORDER" "CROSS_BORDER_PICKUP" "ORDER_CUSTOMS_TYPES" "PACKAGE_MAX_COST" "SUPER_ECONOM" "ECONOM_NOT_FULL_QUANT" "EMPTY_DELIVERY_METHODS"
+Причина недоступности:
+
+UNSPECIFIED — доставка доступна;
+UNKNOWN — неизвестная причина;
+OUT_OF_STOCK — товар закончился;
+BANNED_FOR_AREA — товар заблокирован для этой области;
+BANNED_FOR_LEGAL — товар заблокирован для юридических лиц;
+BANNED — товар заблокирован;
+BANNED_FOR_NOT_PREMIUM — товар заблокирован для покупателей без подписки Premium;
+DELIVERY_UNAVAILABLE — доставка недоступна, например, курьеры перегружены;
+BANNED_FOR_INDIVIDUAL — товар заблокирован для физических лиц;
+INVALID_WEIGHT — вес товара не указан;
+INVALID_MULTIPLICITY — недопустимая кратность в штуках;
+NOT_FOUND_POINTS_DARK_STORES — пункты в массиве дарксторов не найдены;
+INVALID_MULTI_WAREHOUSES — товары в заказе с разными схемами доставки неверно распределены;
+MIN_PRICE — сплит не прошёл минимальную цену;
+OZONE_DELIVERY_UNAVAILABLE — доставка Ozon недоступна;
+RFBS_DELIVERY_UNAVAILABLE — доставка по системе rFBS недоступна;
+HACK_COURIER_TAGS — способ доставки исключён по правилу приоритетного показа;
+NO_SLA — норматив комплектации отсутствует;
+DELIVERY_VARIANT_IS_CLOSING — способ доставки в неподходящем статусе;
+TPL_NOT_INTEGRATED — точки, по которым возврат невозможен;
+NOT_ALL_WAREHOUSES_ARE_SERVED — доставка со склада отправления отсутствует;
+DELIVERY_SLOTS_NOT_FOUND — таймслоты отсутствуют;
+NO_ROUTE — маршрут не найден;
+CAPACITY_LIMIT — таймслоты отсеяны из-за заполненности капаситета;
+PACKAGE_MAX_VOLUME_WEIGHT_RESTRICTION — ограничение на максимальный объёмный вес посылки;
+PACKAGE_MAX_WEIGHT_RESTRICTION — ограничение на максимальный физический вес посылки, в килограммах до тысячных грамма;
+MAX_COST_RESTRICTION — ограничение на максимальную стоимость заказа, учитывается стоимость товаров, их доставки, но не учитывается страховой сбор в рублях;
+MIN_PACKAGE_WEIGHT_RESTRICTION — ограничение на минимальный физический вес посылки в килограммах до тысячных грамма;
+MIN_COST_RESTRICTION — ограничение на минимальную стоимость товаров заказа в рублях;
+MAX_DIMENSIONS_RESTRICTION — ограничение на максимальные габариты посылки в сантиметрах;
+PRODUCT_TYPES_RESTRICTION — ограничение на допустимые в заказе товарные категории;
+PRODUCT_TAGS_RESTRICTION — ограничение на допустимые в заказе теги товаров;
+SELECTED_DELIVERY_METHOD_UNAVAILABLE — выбранный способ доставки стал недоступным;
+SELECTED_DELIVERY_TIMESLOT_UNAVAILABLE — выбранный таймслот стал недоступным;
+MARKETPLACE_UNAVAILABLE — в заказе товары нескольких маркетплейсов, оформить заказ можно только с 1;
+INVALID_PVZ_FOR_KGT — выбранный ПВЗ не подходит для КГТ;
+LEGAL_USER_PREMIUM_SPLIT — юридическим лицам запрещена покупка подписки Premium;
+USER_ALREADY_HAS_PREMIUM — у пользователя уже есть подписка Premium и она не подарочная;
+WAIT_FOR_PAY_SUBSCRIPTION — пользователь купил премиум-подписку, но не оплатил заказ или подписка ещё не перешла в активный статус;
+ADDRESS_NOT_SET — адрес не установлен;
+PICKUP_POINT_DISABLED — ПВЗ недоступен;
+LEGAL_PREORDER — предзаказ недоступен юридическим лицам;
+DELIVERY_TYPE_FOR_PREORDER — тип доставки недоступен для предзаказа;
+CROSS_BORDER_PICKUP — CrossBorder-товары не доставляются в пункты выдачи;
+ORDER_CUSTOMS_TYPES — ограничения на таможенные типы;
+PACKAGE_MAX_COST — ограничение на максимальную стоимость посылки,учитывается стоимость товаров и их доставки;
+SUPER_ECONOM — недоступный «суперэконом»;
+ECONOM_NOT_FULL_QUANT — неполный квант;
+EMPTY_DELIVERY_METHODS — нет доступных способов доставки;
+warehouse_id	
+integer <int64>
+Идентификатор склада.
+
+Создать заказ
+post
+/v2/order/create
+
+Описание и примерыКонсоль
+Создаёт заказ для покупателя и получателя в системе Ozon. Передайте вариант доставки из ответа метода /v2/delivery/checkout.
+
+В ответе могут быть не все отправления. Получите список всех отправлений по номеру заказа order_number методом:
+
+/v2/posting/fbo/list — для схемы FBO;
+/v3/posting/fbs/list — для схемы FBS.
+Request Body schema: application/json
+buyer
+required
+object
+Информация о покупателе.
+
+delivery
+required
+courier (object) or pick_up (object)
+Информация о доставке.
+
+delivery_schema
+required
+string
+Default: "MIX"
+Enum: "MIX" "FBO" "FBS"
+Схема доставки:
+
+MIX — на выбор Ozon;
+FBO — FBO;
+FBS — FBS.
+recipient
+required
+object
+Информация о получателе.
+
+splits
+required
+Array of objects
+Информация об отправлениях в заказе.
+
+Ответы
+200Заказ создан
+Response Schema: application/json
+order_number	
+string
+Номер заказа.
+
+postings	
+Array of strings
+Отправления.
+
+
+Проверить возможность отмены заказа
+post
+/v1/order/cancel/check
+
+Описание и примерыКонсоль
+Возвращает возможность отмены заказа для покупателя.
+
+Request Body schema: application/json
+order_number
+required
+string
+Номер заказа.
+
+Ответы
+200Результат проверки
+Response Schema: application/json
+cancellable	
+boolean
+true, если заказ можно отменить.
+
+order_number	
+string
+Номер заказа.
+
+posting_groups	
+Array of objects
+Группы отправлений.
+
+postings	
+Array of objects
+Информация о возможности отмены отправлений.
+
+
+Отменить заказ
+post
+/v1/order/cancel
+
+Описание и примерыКонсоль
+Отменяет заказ со всеми отправлениями. Используйте идентификатор причины отмены reasons.id из метода /v1/cancel-reason/list-by-order.
+
+Request Body schema: application/json
+order_number
+required
+string
+Номер заказа.
+
+reason_id
+required
+integer <int32>
+Идентификатор причины отмены заказа.
+
+reason_message	
+string
+Причина отмены заказа.
+
+Ответы
+200Заказ отменён
+Response Schema: application/json
+message	
+string
+Статус обработки отмены.
+
+defaultОшибка
+Примеры запроса
+Content type
+application/json
+{
+"order_number": "string",
+"reason_id": 0,
+"reason_message": "string"
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200default
+Content type
+application/json
+{
+"message": "string"
+}
+
+Копировать
+Свернуть всё
+Проверить возможность отмены заказа
+post
+/v1/order/cancel/check
+
+Описание и примерыКонсоль
+Возвращает возможность отмены заказа для покупателя.
+
+Request Body schema: application/json
+order_number
+required
+string
+Номер заказа.
+
+Ответы
+200Результат проверки
+Response Schema: application/json
+cancellable	
+boolean
+true, если заказ можно отменить.
+
+order_number	
+string
+Номер заказа.
+
+posting_groups	
+Array of objects
+Группы отправлений.
+
+postings	
+Array of objects
+Информация о возможности отмены отправлений.
+
+defaultОшибка
+Примеры запроса
+Content type
+application/json
+{
+"order_number": "string"
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200default
+Content type
+application/json
+{
+"cancellable": true,
+"order_number": "string",
+"posting_groups": [
+{
+"posting_numbers": [
+"string"
+]
+}
+],
+"postings": [
+{
+"cancellable": true,
+"posting_number": "string",
+"why_not_cancellable": "string"
+}
+]
+}
+
+Копировать
+Свернуть всё
+Получить статус отмены заказа
+post
+/v1/order/cancel/status
+
+Описание и примерыКонсоль
+Request Body schema: application/json
+order_number
+required
+string
+Номер заказа.
+
+Ответы
+200Статус отмены заказа
+Response Schema: application/json
+order_number	
+string
+Номер заказа.
+
+posting_number	
+Array of strings
+Список отправлений в заказе.
+
+state	
+string
+Статус отмены заказа.
+
+defaultОшибка
+Response Schema: application/json
+code	
+integer <int32>
+Код ошибки.
+
+details	
+Array of objects
+Дополнительная информация об ошибке.
+
+message	
+string
+Описание ошибки.
+
+
+Получить список отправлений
+post
+/v2/posting/digital/list
+
+Описание и примерыКонсоль
+Возвращает список отправлений, по которым нужно загрузить коды цифровых товаров. Метод доступен только продавцам, которые работают с цифровыми товарами.
+
+Чтобы получить список отправлений в любом статусе, используйте метод /v3/posting/fbo/list.
+
+Вы можете оставить обратную связь о работе метода в комментариях в сообществе разработчиков Ozon for dev.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+cursor	
+string
+Указатель для выборки следующих данных.
+
+filter	
+object
+Фильтр для поиска отправлений.
+
+limit	
+integer <int64> [ 1 .. 100 ]
+Количество значений в ответе.
+
+sort_dir	
+string
+Enum: "ASC" "DESC"
+Направление сортировки:
+
+ASC — по возрастанию;
+DESC — по убыванию.
+with	
+object
+Дополнительные поля, которые нужно добавить в ответ.
+
+Ответы
+200Список отправлений
+Response Schema: application/json
+cursor	
+string
+Указатель для выборки следующих данных.
+
+has_next	
+boolean
+true, если в ответе вернулись не все отправления.
+
+postings	
+Array of objects
+Список отправлений.
+
+Информация об отправлении
+post
+/v2/posting/fbo/get
+
+Описание и примерыКонсоль
+Возвращает информацию об отправлении по его идентификатору.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+posting_number
+required
+string
+Номер отправления.
+
+translit	
+boolean
+Если включена транслитерация адреса из кириллицы в латиницу — true.
+
+with	
+object
+Дополнительные поля, которые нужно добавить в ответ.
+
+Ответы
+200Информация об отправлении
+Response Schema: application/json
+result	
+object
+Результат запроса.
+
+additional_data	
+Array of objects
+analytics_data	
+object
+Данные аналитики.
+
+cancel_reason_id	
+integer <int64>
+Идентификатор причины отмены отправления.
+
+created_at	
+string <date-time>
+Дата и время создания отправления.
+
+fact_delivery_date	
+string <date-time>
+Дата фактической передачи отправления в доставку.
+
+financial_data	
+object
+Финансовые данные.
+
+in_process_at	
+string <date-time>
+Дата и время начала обработки отправления.
+
+legal_info	
+object
+Юридическая информация о покупателе.
+
+order_id	
+integer <int64>
+Идентификатор заказа, к которому относится отправление.
+
+order_number	
+string
+Номер заказа, к которому относится отправление.
+
+posting_number	
+string
+Номер отправления.
+
+products	
+Array of objects
+Список товаров в отправлении.
+
+status	
+string
+Статус отправления:
+
+awaiting_packaging — ожидает упаковки,
+awaiting_deliver — ожидает отгрузки,
+delivering — доставляется,
+delivered — доставлено,
+cancelled — отменено.
+substatus	
+string
+Подстатус отправления:
+
+posting_split_pending, posting_created — создано;
+posting_packing — на упаковке;
+posting_transferring_to_delivery — передаётся в доставку;
+posting_on_way_to_city — на пути в город доставки;
+posting_returned_to_warehouse — возвращено на склад;
+posting_transferred_to_courier_service — передаётся в службу доставки;
+posting_in_courier_service — курьер в пути;
+posting_on_way_to_pickup_point — в пути в пункт выдачи;
+posting_in_pickup_point — в пункте выдачи;
+posting_delivered — доставлено курьером;
+posting_received — получено в пункте выдачи;
+posting_canceled — отменено.
+
+Получить список отправлений
+post
+/v4/posting/fbs/list
+
+Описание и примерыКонсоль
+Возвращает список отправлений за указанный период времени — он должен быть не больше одного года.
+
+Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите пуш-уведомления.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+cursor	
+string
+Указатель для выборки следующих данных.
+
+filter
+required
+object
+Фильтр.
+
+limit
+required
+integer <int64> [ 1 .. 100 ]
+Количество значений в ответе.
+
+sort_dir	
+string
+Enum: "ASC" "DESC"
+Направление сортировки:
+
+ASC — по возрастанию;
+DESC — по убыванию.
+translit	
+boolean
+true, чтобы включить транслитерацию адреса из кириллицы в латиницу.
+
+with	
+object
+Дополнительные поля, которые нужно добавить в ответ.
+
+Ответы
+200Список отправлений
+Response Schema: application/json
+cursor	
+string
+Указатель для выборки следующих данных.
+
+has_next	
+boolean
+true, если в ответе вернулись не все отправления.
+
+postings	
+Array of objects
+Список отправлений.
+
+Получить информацию об отправлении по идентификатору
+post
+/v3/posting/fbs/get
+
+Описание и примерыКонсоль
+Чтобы получать актуальную дату отгрузки, регулярно обновляйте информацию об отправлениях или подключите пуш-уведомления.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+posting_number
+required
+string
+Идентификатор отправления.
+
+with	
+object
+Дополнительные поля, которые нужно добавить в ответ.
+
+Ответы
+200Информация об отправлении
+Response Schema: application/json
+result	
+object
+Информация об отправлении.
+
+additional_data	
+Array of objects
+addressee	
+object
+Контактные данные получателя.
+
+analytics_data	
+object
+Данные аналитики.
+
+available_actions	
+Array of strings
+Доступные действия и информация об отправлении:
+
+arbitration — открыть спор;
+awaiting_delivery — перевести в статус «Ожидает отгрузки»;
+can_create_chat — начать чат с покупателем;
+cancel — отменить отправление;
+click_track_number — просмотреть по трек-номеру историю изменения статусов в личном кабинете;
+customer_phone_available — телефон покупателя;
+has_weight_products — весовые товары в отправлении;
+hide_region_and_city — скрыть регион и город покупателя в отчёте;
+invoice_get — получить информацию из счёта-фактуры;
+invoice_send — создать счёт-фактуру;
+invoice_update — отредактировать счёт-фактуру;
+label_download_big — скачать большую этикетку;
+label_download_small — скачать маленькую этикетку;
+label_download — скачать этикетку;
+non_int_delivered — перевести в статус «Условно доставлен»;
+non_int_delivering — перевести в статус «Доставляется»;
+non_int_last_mile — перевести в статус «Курьер в пути»;
+product_cancel — отменить часть товаров в отправлении;
+set_cutoff — необходимо указать дату отгрузки, воспользуйтесь методом /v1/posting/cutoff/set;
+set_timeslot — изменить время доставки покупателю;
+set_track_number — указать или изменить трек-номер;
+ship_async_in_process — отправление собирается;
+ship_async_retry — собрать отправление повторно после ошибки сборки;
+ship_async — собрать отправление;
+ship_with_additional_info — необходимо заполнить дополнительную информацию;
+ship — собрать отправление;
+update_cis — изменить дополнительную информацию.
+barcodes	
+object
+Штрихкоды отправления.
+
+cancellation	
+object
+Информация об отмене.
+
+courier	
+object
+Данные о курьере.
+
+customer	
+object
+Данные о покупателе.
+
+delivering_date	
+string <date-time>
+Дата передачи отправления в доставку.
+
+delivery_method	
+object
+Метод доставки.
+
+delivery_price	
+string
+Стоимость доставки.
+
+fact_delivery_date	
+string <date-time>
+Дата фактической передачи отправления в доставку.
+
+financial_data	
+object
+Данные о стоимости товара, размере скидки, выплате и комиссии.
+
+in_process_at	
+string <date-time>
+Дата и время начала обработки отправления.
+
+is_express	
+boolean
+Если использовалась быстрая доставка Ozon Express — true.
+
+is_multibox	
+boolean
+Признак, что в отправлении есть многокоробочный товар и нужно передать количество коробок для него:
+
+true — до сборки передайте количество коробок через метод /v3/posting/multiboxqty/set.
+false — отправление собрано с указанием количества коробок в параметре multi_box_qty или в отправлении нет многокоробочного товара.
+legal_info	
+object
+Юридическая информация о покупателе.
+
+multi_box_qty	
+integer <int32>
+Количество коробок, в которые упакован товар.
+
+optional	
+object
+Список товаров с дополнительными характеристиками.
+
+order_id	
+integer <int64>
+Идентификатор заказа, к которому относится отправление.
+
+order_number	
+string
+Номер заказа, к которому относится отправление.
+
+parent_posting_number	
+string
+Номер родительского отправления, в результате разделения которого появилось текущее.
+
+pickup_code_verified_at	
+string <date-time>
+Дата и время успешной валидации кода курьера. Чтобы проверить код курьера, воспользуйтесь методом /v1/posting/fbs/pick-up-code/verify.
+
+posting_number	
+string
+Номер отправления.
+
+product_exemplars	
+object
+Информация по продуктам и их экземплярам.
+
+Ответ содержит поле product_exemplars, если в запросе передан признак with.product_exemplars = true.
+
+products	
+Array of objects
+Массив товаров в отправлении.
+
+provider_status	
+string
+Статус службы доставки.
+
+prr_option	
+object
+Информация об услуге погрузочно-разгрузочных работ. Актуально для КГТ-отправлений с доставкой силами продавца или интегрированной службой.
+
+related_postings	
+object
+Связанные отправления.
+
+related_weight_postings	
+Array of strings
+Список номеров связанных весовых отправлений.
+
+require_blr_traceable_attrs	
+boolean
+true, если нужно заполнить атрибуты прослеживаемости.
+
+requirements	
+object
+Cписок продуктов, для которых нужно передать страну-изготовителя, номер грузовой таможенной декларации (ГТД), регистрационный номер партии товара (РНПТ), маркировку «Честный ЗНАК», другие маркировки или вес, чтобы перевести отправление в следующий статус.
+
+shipment_date	
+string <date-time>
+Дата и время, до которой необходимо собрать отправление. Показываем рекомендованное время отгрузки. По истечении этого времени начнёт применяться новый тариф, информацию о нём уточняйте в поле tariffication.
+
+shipment_date_without_delay	
+string <date-time>
+Дата и время отгрузки без просрочки.
+
+status	
+string
+Статус отправления:
+
+acceptance_in_progress — идёт приёмка,
+arbitration — арбитраж,
+awaiting_approve — ожидает подтверждения,
+awaiting_deliver — ожидает отгрузки,
+awaiting_packaging — ожидает упаковки,
+awaiting_registration — ожидает регистрации,
+awaiting_verification — создано,
+cancelled — отменено,
+cancelled_from_split_pending — отменён из-за разделения отправления,
+client_arbitration — клиентский арбитраж доставки,
+delivered — доставлено,
+delivering — доставляется,
+driver_pickup — у водителя,
+not_accepted — не принят на сортировочном центре,
+substatus	
+string
+Подстатус отправления:
+
+posting_acceptance_in_progress — идёт приёмка,
+posting_in_arbitration — арбитраж,
+posting_created — создано,
+posting_in_carriage — в перевозке,
+posting_not_in_carriage — не добавлено в перевозку,
+posting_registered — зарегистрировано,
+posting_transferring_to_delivery (status=awaiting_deliver) — передаётся в доставку,
+posting_awaiting_passport_data — ожидает паспортных данных,
+posting_created — создано,
+posting_awaiting_registration — ожидает регистрации,
+posting_registration_error — ошибка регистрации,
+posting_transferring_to_delivery (status=awaiting_registration) — передаётся курьеру,
+posting_split_pending — создано,
+posting_canceled — отменено,
+posting_in_client_arbitration — клиентский арбитраж доставки,
+posting_delivered — доставлено,
+posting_received — получено,
+posting_conditionally_delivered — условно доставлено,
+posting_in_courier_service — курьер в пути,
+posting_in_pickup_point — в пункте выдачи,
+posting_on_way_to_city — в пути в ваш город,
+posting_on_way_to_pickup_point — в пути в пункт выдачи,
+posting_returned_to_warehouse — возвращено на склад,
+posting_transferred_to_courier_service — передаётся в службу доставки,
+posting_driver_pick_up — у водителя,
+posting_not_in_sort_center — не принято на сортировочном центре,
+ship_failed — сборка не удалась.
+previous_substatus	
+string
+Предыдущий подстатус отправления. Возможные значения:
+
+posting_acceptance_in_progress — идёт приёмка,
+posting_in_arbitration — арбитраж,
+posting_created — создано,
+posting_in_carriage — в перевозке,
+posting_not_in_carriage — не добавлено в перевозку,
+posting_registered — зарегистрировано,
+posting_transferring_to_delivery (status=awaiting_deliver) — передаётся в доставку,
+posting_awaiting_passport_data — ожидает паспортных данных,
+posting_created — создано,
+posting_awaiting_registration — ожидает регистрации,
+posting_registration_error — ошибка регистрации,
+posting_transferring_to_delivery (status=awaiting_registration) — передаётся курьеру,
+posting_split_pending — создано,
+posting_canceled — отменено,
+posting_in_client_arbitration — клиентский арбитраж доставки,
+posting_delivered — доставлено,
+posting_received — получено,
+posting_conditionally_delivered — условно доставлено,
+posting_in_courier_service — курьер в пути,
+posting_in_pickup_point — в пункте выдачи,
+posting_on_way_to_city — в пути в ваш город,
+posting_on_way_to_pickup_point — в пути в пункт выдачи,
+posting_returned_to_warehouse — возвращено на склад,
+posting_transferred_to_courier_service — передаётся в службу доставки,
+posting_driver_pick_up — у водителя,
+posting_not_in_sort_center — не принято на сортировочном центре.
+tpl_integration_type	
+string
+Тип интеграции со службой доставки:
+
+ozon — доставка через Ozon логистику.
+aggregator — доставка внешней службой, Ozon регистрирует заказ.
+3pl_tracking — доставка внешней службой, продавец регистрирует заказ.
+non_integrated — доставка силами продавца.
+tracking_number	
+string
+Трек-номер отправления.
+
+tariffication	
+object
+Информация по тарификации отгрузки.
+
+tariffication_steps	
+Array of objects
+Этапы тарификации.
+
+Информация о количестве товаров
+post
+/v4/product/info/stocks
+
+Описание и примерыКонсоль
+Возвращает информацию о ĸоличестве товаров по схемам FBS, rFBS и FBP:
+
+сĸольĸо единиц есть в наличии,
+сĸольĸо зарезервировано поĸупателями.
+Чтобы получить информацию об остатках по схеме FBO, используйте метод /v1/analytics/stocks.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+cursor	
+string
+Указатель для выборки следующих данных.
+
+filter
+required
+object
+Фильтр по товарам.
+
+limit
+required
+integer <int32>
+Количество значений на странице. Минимум — 1, максимум — 1000.
+
+Информация о возвратах FBO и FBS
+post
+/v1/returns/list
+
+Описание и примерыКонсоль
+Метод для получения информации о возвратах FBO и FBS.
+
+Request Body schema: application/json
+filter	
+object
+Фильтры. Используйте только один фильтр в запросе: logistic_return_date, storage_tariffication_start_date или visual_status_change_moment, иначе вернётся ошибка.
+
+limit
+required
+integer <int32>
+Количество подгружаемых возвратов. Максимальное значение — 500.
+
+last_id	
+integer <int64>
+Идентификатор последнего подгруженного возврата.
+
+Ответы
+200Информация по возвратам
+Response Schema: application/json
+returns	
+Array of objects
+Информация о возвратах.
+
+has_next	
+boolean
+true, если у продавца есть другие возвраты.
+
+Причины отмены отправлений
+post
+/v1/cancel-reason/list
+
+Описание и примерыКонсоль
+Возвращает возможные причины отмены отправлений и заказов.
+
+Ответы
+200Причины отмены отправлений
+Response Schema: application/json
+reasons	
+Array of objects
+Информация о причинах отмены.
+
+Array ()
+id	
+integer <int64>
+Идентификатор причины отмены:
+
+501 — «Ozon перенёс срок доставки»;
+502 — «Отменили часть товаров из заказа»;
+503 — «Не применилась скидка или промокод»;
+504 — «Хочу изменить заказ и оформить заново»;
+505 — «Слишком долго ждать»;
+506 — «Нашёл дешевле»;
+508 — «Не нашёл нужную причину»;
+710 — «Указал неверный адрес».
+name	
+string
+Причина отмены.
+Причины отмены заказа
+post
+/v1/cancel-reason/list-by-order
+
+Описание и примерыКонсоль
+Возвращает возможные причины отмены для заказа.
+
+Request Body schema: application/json
+order_number
+required
+string
+Номер заказа.
+
+Ответы
+200Причины отмены заказа
+Response Schema: application/json
+reasons	
+Array of objects
+Информация о причинах отмены.
+
+Array ()
+id	
+integer <int64>
+Идентификатор причины отмены:
+
+501 — «Ozon перенёс срок доставки»;
+502 — «Отменили часть товаров из заказа»;
+503 — «Не применилась скидка или промокод»;
+504 — «Хочу изменить заказ и оформить заново»;
+505 — «Слишком долго ждать»;
+506 — «Нашёл дешевле»;
+508 — «Не нашёл нужную причину»;
+710 — «Указал неверный адрес».
+name	
+string
+Причина отмены.
+
+defaultОшибка
+Примеры запроса
+Content type
+application/json
+{
+"order_number": "string"
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200default
+Content type
+application/json
+{
+"reasons": [
+{
+"id": 0,
+"name": "string"
+}
+]
+}
+
+Копировать
+Свернуть всё
+Причины отмены отправления
+post
+/v1/cancel-reason/list-by-posting
+
+Описание и примерыКонсоль
+Возвращает возможные причины отмены для отправления.
+
+Request Body schema: application/json
+posting_number
+required
+string
+Номер отправления.
+
+Ответы
+200Причины отмены отправления
+Response Schema: application/json
+reasons	
+Array of objects
+Информация о причинах отмены.
+
+Array ()
+id	
+integer <int64>
+Идентификатор причины отмены:
+
+501 — «Ozon перенёс срок доставки»;
+502 — «Отменили часть товаров из заказа»;
+503 — «Не применилась скидка или промокод»;
+504 — «Хочу изменить заказ и оформить заново»;
+505 — «Слишком долго ждать»;
+506 — «Нашёл дешевле»;
+508 — «Не нашёл нужную причину»;
+710 — «Указал неверный адрес».
+name	
+string
+Причина отмены.
+
+
+
+
+
+
+Загрузка и обновление товаров
+Создать или обновить товар
+post
+/v3/product/import
+
+Описание и примерыКонсоль
+Метод для создания товаров и обновления информации о них.
+
+В сутки можно создать или обновить определённое количество товаров. Чтобы узнать лимит, используйте /v4/product/info/limit. Если количество загрузок и обновлений товаров превысит лимит, появится ошибка item_limit_exceeded.
+
+У метода есть лимит на количество операций c товарами в минуту. Если вы превысите лимит, вернётся ошибка 429 с описанием в поле message и заголовками:
+
+Item-Retry-After — время в минутах до обновления лимита. Для суточного лимита — время до 03:00 по московскому времени.
+Item-Rate-Limit-Remaining — остаток операций до следующего сброса лимита.
+В одном запросе можно передать до 100 товаров. Каждый товар — это отдельный элемент в массиве items. Укажите всю информацию о товаре: его характеристики, штрихкод, изображения, габариты, цену и валюту цены.
+
+При обновлении товара передайте в запросе всю информацию о нём.
+
+Указанная валюта должна совпадать с той, которая установлена в настройках личного кабинета. По умолчанию передаётся RUB — российский рубль. Например, если у вас установлена валюта юань, передавайте значение CNY, иначе вернётся ошибка.
+
+Товар не будет создан или обновлён, если вы заполните неправильно или не укажете:
+
+Обязательные характеристики: характеристики отличаются для разных категорий — их можно посмотреть в Базе знаний продавца или получить методом /v1/description-category/attribute.
+Реальные объёмно-весовые характеристики: depth, width, height, dimension_unit, weight, weight_unit. Не пропускайте эти параметры в запросе и не указывайте 0.
+Для некоторых характеристик можно использовать HTML-теги.
+
+После модерации товар появится в вашем личном кабинете, но не будет виден пользователям, пока вы не выставите его на продажу.
+
+Каждый товар в запросе — отдельный элемент массива items.
+
+Чтобы объединить две карточки, для каждой передайте 9048 в массиве attributes. Все атрибуты в этих карточках, кроме размера или цвета, должны совпадать.
+
+Загрузка изображений
+Для загрузки передайте в запросе ссылки на изображения в общедоступном облачном хранилище. Формат изображения по ссылке — JPG или PNG.
+
+Изображения в массиве images располагайте в соответствии с желаемым порядком на сайте. Для загрузки главного изображения товара используйте параметр primary_image. Если не передать значение primary_image, главным будет первое изображение в массиве images.
+
+Чтобы загрузить главное изображение для Ozon Селект:
+
+Проверьте, что в ответе метода /v1/description-category/attribute возвращается характеристика с result.id = 23500.
+Передайте ссылку на изображение в параметре items.attributes.values.value с id = 23500.
+Для каждого товара вы можете загрузить до 30 изображений, включая главное. Если передать значение primary_image, максимальное количество изображений в images — 29. Если параметр primary_image пустой, то в images можно передать до 30 изображений.
+
+Для загрузки изображений 360 используйте поле images360, для загрузки маркетингового цвета — color_image.
+
+Если вы хотите изменить состав или порядок изображений, получите информацию с помощью метода /v3/product/info/list — в нём отображается текущий порядок и состав изображений. Скопируйте данные полей images, images360, color_image, измените и дополните состав или порядок в соответствии с необходимостью.
+
+Загрузка видео
+Для загрузки передайте в запросе ссылки на видео.
+
+Для этого в параметре complex_attributes передайте объект. В нём в массиве attributes передайте 2 объекта с complex_id = 100001:
+
+В первом укажите id = 21841 и в массиве values передайте объект с ссылкой на видео.
+
+Пример:
+
+{
+  "complex_id": 100001,
+  "id": 21841,
+  "values": [
+    {
+      "value": "https://www.youtube.com/watch?v=ZwM0iBn03dY"
+    }
+  ]
+}
+Во втором укажите значение id = 21837 и в массиве values передайте объект с названием видео.
+
+Пример:
+
+{
+  "complex_id": 100001,
+  "id": 21837,
+  "values": [
+    {
+      "value": "videoName_1"
+    }
+  ]
+}
+Если вы хотите загрузить несколько видео, передавайте значения для каждого видео в разных объектах массива values.
+
+Пример:
+
+  {
+    "complex_id": 100001,
+    "id": 21837,
+    "values": [
+      {
+        "value": "videoName_1"
+      },
+      {
+        "value": "videoName_2"
+      }
+    ]
+  },
+  {
+    "complex_id": 100001,
+    "id": 21841,
+    "values": [
+      {
+        "value": "https://www.youtube.com/watch?v=ZwM0iBn03dY"
+      },
+      {
+        "value": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      }
+    ]
+  }
+Загрузка таблицы размеров
+Вы можете добавить в карточку товара таблицу размеров, созданную с помощью конструктора. Передайте её в массиве attributes в формате JSON как Rich-контент id = 13164.
+
+Конструктор в формате JSON
+Подробнее о конструкторе в Базе знаний продавца
+
+Загрузка видеообложки
+Вы можете загрузить видеообложку через complex_attributes.
+
+Пример:
+
+"complex_attributes": [
+  {
+    "attributes": [
+      {
+        "id": 21845,
+        "complex_id": 100002,
+        "values": [
+          {
+          "dictionary_value_id": 0,
+          "value": "https://v.ozone.ru/vod/video-10/01GFATWQVCDE7G5B721421P1231Q7/asset_1.mp4"
+          }
+        ]
+      }
+    ]
+  }
+]
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+items	
+Array of objects
+Массив данных.
+
+Ответы
+200Создан новый товар / Информация о товаре обновлена
+Response Schema: application/json
+result	
+object
+Результаты запроса.
+
+task_id	
+integer <int64>
+Номер задания на загрузку товаров. Проверьте статус создания или обновления товара методом /v1/product/import/info.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+429Слишком много запросов
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+Example
+Пример запроса без загрузки видео
+{
+"items": [
+{
+"attributes": [
+{
+"complex_id": 0,
+"id": 5076,
+"values": [
+{
+"dictionary_value_id": 971082156,
+"value": "Стойка для акустической системы"
+}
+]
+},
+{
+"complex_id": 0,
+"id": 9048,
+"values": [
+{
+"value": "Комплект защитных плёнок для X3 NFC. Темный хлопок"
+}
+]
+},
+{
+"complex_id": 0,
+"id": 8229,
+"values": [
+{
+"dictionary_value_id": 95911,
+"value": "Комплект защитных плёнок для X3 NFC. Темный хлопок"
+}
+]
+},
+{
+"complex_id": 0,
+"id": 85,
+"values": [
+{
+"dictionary_value_id": 5060050,
+"value": "Samsung"
+}
+]
+},
+{
+"complex_id": 0,
+"id": 10096,
+"values": [
+{
+"dictionary_value_id": 61576,
+"value": "серый"
+}
+]
+}
+],
+"barcode": "112772873170",
+"description_category_id": 17028922,
+"new_description_category_id": 0,
+"color_image": "",
+"complex_attributes": [ ],
+"currency_code": "RUB",
+"depth": 10,
+"dimension_unit": "mm",
+"height": 250,
+"images": [ ],
+"images360": [ ],
+"name": "Комплект защитных плёнок для X3 NFC. Темный хлопок",
+"offer_id": "143210608",
+"old_price": "1100",
+"pdf_list": [ ],
+"price": "1000",
+"primary_image": "",
+"promotions": [
+{
+"operation": "UNKNOWN",
+"type": "REVIEWS_PROMO"
+}
+],
+"type_id": 91565,
+"vat": "0.1",
+"weight": 100,
+"weight_unit": "g",
+"width": 150
+}
+]
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409429500
+Content type
+application/json
+{
+"result": {
+"task_id": 172549793
+}
+}
+
+Копировать
+Свернуть всё
+Узнать статус добавления или обновления товара
+post
+/v1/product/import/info
+
+Описание и примерыКонсоль
+Позволяет получить статус создания или обновления карточки товара.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+task_id
+required
+integer <int64>
+Код задачи на импорт товаров. Можно получить с помощью метода /v3/product/import.
+
+Ответы
+200Статус добавления или обновления товара
+Response Schema: application/json
+result	
+object
+items	
+Array of objects
+Информация о товарах.
+
+total	
+integer <int32>
+Идентификатор товара в системе продавца — артикул.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+{
+"task_id": "172549793"
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409500
+Content type
+application/json
+{
+"result": {
+"items": [
+{
+"offer_id": "143210608",
+"product_id": 137285792,
+"status": "imported",
+"errors": [ ]
+}
+],
+"total": 1
+}
+}
+
+Копировать
+Свернуть всё
+Создать товар по SKU
+post
+/v1/product/import-by-sku
+
+Описание и примерыКонсоль
+Метод создаёт копию карточки товара с указанным SKU.
+
+Метод копирует только карточку товара другого продавца, скопировать свой товар не получится.
+
+Создать копию не получится, если продавец запретил копирование своих карточек.
+
+Обновить товар по SKU нельзя.
+
+У метода есть лимит на количество операций c товарами в минуту. Если вы превысите лимит, вернётся ошибка 429 с описанием в поле message и заголовками:
+
+Item-Retry-After — время в минутах до обновления лимита. Для суточного лимита — время до 03:00 по московскому времени.
+Item-Rate-Limit-Remaining — остаток операций до следующего сброса лимита.
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+items	
+Array of objects <= 1000 items
+Информация о товарах.
+
+Ответы
+200Товар создан
+Response Schema: application/json
+result	
+object
+task_id	
+integer <int64>
+Код задачи на импорт товаров.
+
+unmatched_sku_list	
+Array of integers <int64>
+Список идентификаторов товаров в системе Ozon — product_id.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+429Слишком много запросов
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+{
+"items": [
+{
+"sku": 298789742,
+"name": "Кружка",
+"offer_id": "91132",
+"currency_code": "RUB",
+"old_price": "2590",
+"price": "2300",
+"vat": "0.1"
+}
+]
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409429500
+Content type
+application/json
+{
+"result": {
+"task_id": 176594213,
+"unmatched_sku_list": [ ]
+}
+}
+
+Копировать
+Свернуть всё
+Обновить характеристики товара
+post
+/v1/product/attributes/update
+
+Описание и примерыКонсоль
+Метод позволяет добавлять характеристики и изменять их значения. Удалить уже заполненные характеристики не получится. Для полного обновления характеристик используйте /v3/product/import.
+
+У метода есть лимит на количество операций c товарами в минуту. Если вы превысите лимит, вернётся ошибка 429 с описанием в поле message и заголовками:
+
+Item-Retry-After — время в минутах до обновления лимита. Для суточного лимита — время до 03:00 по московскому времени.
+Item-Rate-Limit-Remaining — остаток операций до следующего сброса лимита.
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+items	
+Array of objects
+Товары и характеристики, которые нужно обновить.
+
+Ответы
+200Создано задание на обновление товаров
+Response Schema: application/json
+task_id	
+integer <int64>
+Номер задания на обновление товаров.
+
+Чтобы проверить статус обновления, передайте полученное значение в метод /v1/product/import/info.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+429Слишком много запросов
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+{
+"items": [
+{
+"offer_id": "PROD-2023-001",
+"attributes": [
+{
+"complex_id": 1,
+"id": 1,
+"values": [
+{
+"dictionary_value_id": 1001,
+"value": "Синий"
+}
+]
+},
+{
+"complex_id": 2,
+"id": 2,
+"values": [
+{
+"dictionary_value_id": 2001,
+"value": "42"
+}
+]
+},
+{
+"complex_id": 3,
+"id": 3,
+"values": [
+{
+"dictionary_value_id": 3001,
+"value": "Хлопок"
+},
+{
+"dictionary_value_id": 3002,
+"value": "Полиэстер"
+}
+]
+}
+]
+}
+]
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409429500
+Content type
+application/json
+{
+"task_id": 0
+}
+
+Копировать
+Свернуть всё
+Загрузить или обновить изображения товара
+post
+/v1/product/pictures/import
+
+Описание и примерыКонсоль
+Метод для загрузки или обновления изображений товара.
+
+При каждом вызове метода передавайте все изображения, которые должны быть на карточке товара. Например, если вы вызвали метод и загрузили 10 изображений, а затем вызвали метод второй раз и загрузили ещё одно, то все 10 предыдущих сотрутся.
+
+Для загрузки передайте адрес ссылки на изображение в общедоступном облачном хранилище. Формат изображения по ссылке — JPG или PNG.
+
+Изображения в массиве images располагайте в соответствии с желаемым порядком на сайте. Главным будет первое изображение в массиве.
+
+Для каждого товара вы можете загрузить до 30 изображений.
+
+Для загрузки изображений 360 используйте поле images360, для загрузки маркетингового цвета — color_image.
+
+Если вы хотите изменить состав или порядок изображений, получите информацию с помощью метода /v3/product/info/list — в нём отображается текущий порядок и состав изображений. Скопируйте данные полей images, images360, color_image, измените и дополните состав или порядок в соответствии с необходимостью.
+
+У метода есть лимит на количество операций c товарами в минуту. Если вы превысите лимит, вернётся ошибка 429 с описанием в поле message и заголовками:
+
+Item-Retry-After — время в минутах до обновления лимита. Для суточного лимита — время до 03:00 по московскому времени.
+Item-Rate-Limit-Remaining — остаток операций до следующего сброса лимита.
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+color_image	
+string
+Маркетинговый цвет.
+
+images	
+Array of strings
+Массив ссылок на изображения. До 30 штук. Изображения в массиве расположены в порядке их расположения на сайте. Первое изображение в массиве будет главным.
+
+images360	
+Array of strings
+Массив изображений 360. До 70 штук.
+
+Формат: адрес ссылки на изображение в общедоступном облачном хранилище. Формат изображения по ссылке — JPG.
+
+product_id
+required
+integer <int64>
+Идентификатор товара в системе Ozon — product_id.
+
+Ответы
+200Предварительный результат работы метода
+Response Schema: application/json
+result	
+object
+Результат работы метода.
+
+pictures	
+Array of objects
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+429Слишком много запросов
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+{
+"color_image": "https://example.com/cloud-storage/color/marketing-color-red.jpg",
+"images": [
+"https://example.com/cloud-storage/images/main-image-front.jpg",
+"https://example.com/cloud-storage/images/secondary-image-side.jpg",
+"https://example.com/cloud-storage/images/secondary-image-back.jpg",
+"https://example.com/cloud-storage/images/secondary-image-detail1.jpg",
+"https://example.com/cloud-storage/images/secondary-image-detail2.jpg"
+],
+"images360": [
+"https://example.com/cloud-storage/images360/360-view-001.jpg",
+"https://example.com/cloud-storage/images360/360-view-002.jpg",
+"https://example.com/cloud-storage/images360/360-view-003.jpg",
+"https://example.com/cloud-storage/images360/360-view-004.jpg",
+"https://example.com/cloud-storage/images360/360-view-005.jpg"
+],
+"product_id": 123456789
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409429500
+Content type
+application/json
+{
+"result": {
+"pictures": [
+{
+"is_360": true,
+"is_color": true,
+"is_primary": true,
+"product_id": 123456789,
+"state": "uploaded",
+"url": "https://example.com/cloud-storage/images360/360-view-001.jpg"
+}
+]
+}
+}
+
+Копировать
+Свернуть всё
+Список товаров
+post
+/v3/product/list
+
+Описание и примерыКонсоль
+Метод для получения списка всех товаров.
+
+Если вы используете фильтр по идентификатору offer_id или product_id, остальные параметры заполнять не обязательно. За один раз вы можете использовать только одну группу идентификаторов, не больше 1000 товаров.
+
+Если вы не используете для отображения идентификаторы, укажите limit и last_id в следующих запросах.
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+filter	
+object
+Фильтр по товарам.
+
+last_id	
+string
+Идентификатор последнего значения на странице. При первом запросе оставьте это поле пустым.
+
+Чтобы получить следующие значения, укажите last_id из ответа предыдущего запроса.
+
+limit	
+integer <int64>
+Количество значений на странице. Минимум — 1, максимум — 1000.
+
+Ответы
+200Список товаров
+Response Schema: application/json
+result	
+object
+Результат.
+
+items	
+Array of objects
+Список товаров.
+
+last_id	
+string
+Идентификатор последнего значения на странице.
+
+Чтобы получить следующие значения, передайте полученное значение в следующем запросе в параметре last_id.
+
+total	
+integer <int32>
+Всего товаров.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+500Внутренняя ошибка сервера
+Примеры запроса
+Content type
+application/json
+{
+"filter": {
+"offer_id": [
+"136748"
+],
+"product_id": [
+"223681945"
+],
+"visibility": "ALL"
+},
+"last_id": "",
+"limit": 100
+}
+
+Копировать
+Свернуть всё
+Примеры ответа
+200400403404409500
+Content type
+application/json
+{
+"result": {
+"items": [
+{
+"product_id": 3397917680,
+"offer_id": "2026-01-13 16:56:03 PDF",
+"has_fbo_stocks": false,
+"has_fbs_stocks": false,
+"archived": false,
+"is_discounted": false,
+"quants": [ ]
+}
+],
+"total": 1,
+"last_id": "WzMzOTc5MTc2ODAsMzM5NzkxNzY4MF0="
+}
+}
+
+Копировать
+Свернуть всё
+Получить контент-рейтинг товаров по SKU
+post
+/v1/product/rating-by-sku
+
+Описание и примерыКонсоль
+Метод для получения контент-рейтинга товаров, а также рекомендаций по его увеличению.
+
+Подробнее о контент-рейтинге
+
+header Parameters
+Client-Id
+required
+string
+Идентификатор клиента.
+
+Api-Key
+required
+string
+API-ключ.
+
+Request Body schema: application/json
+skus
+required
+Array of strings <int64>
+Идентификаторы товаров в системе Ozon — SKU, для которых нужно вернуть контент-рейтинг.
+
+Ответы
+200Контент-рейтинг товаров
+Response Schema: application/json
+products	
+Array of objects
+Контент-рейтинг товаров.
+
+Array ()
+sku	
+integer <int64>
+Идентификатор товара на Ozon.
+
+rating	
+number <float>
+Контент-рейтинг товара: от 0 до 100.
+
+groups	
+Array of objects
+Группы характеристик, из которых складывается контент-рейтинг.
+
+400Неверный параметр
+403Доступ запрещён
+404Ответ не найден
+409Конфликт запроса
+500Внутренняя ошибка сервера
+

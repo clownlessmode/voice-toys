@@ -19,6 +19,8 @@ interface CreateOrderData {
   items: OrderItem[];
 }
 
+const HIDDEN_PLACEHOLDER_PRICE_RUB = 1;
+
 export async function POST(request: NextRequest) {
   try {
     const data: CreateOrderData = await request.json();
@@ -35,12 +37,24 @@ export async function POST(request: NextRequest) {
     // Проверяем существование товаров и получаем их цены
     const productIds = data.items.map((item) => item.productId);
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, isActive: true },
     });
 
     if (products.length !== productIds.length) {
       return NextResponse.json(
         { error: "Некоторые товары не найдены" },
+        { status: 400 }
+      );
+    }
+    const blockedProduct = products.find(
+      (product) => product.price <= HIDDEN_PLACEHOLDER_PRICE_RUB
+    );
+    if (blockedProduct) {
+      return NextResponse.json(
+        {
+          error:
+            "Некоторые товары временно недоступны для покупки. Обновите каталог и попробуйте снова.",
+        },
         { status: 400 }
       );
     }

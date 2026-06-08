@@ -61,7 +61,9 @@ export default function EditProduct() {
   useEffect(() => {
     async function loadProduct() {
       try {
-        const product = await getProductById(params.id);
+        const product = await getProductById(params.id, {
+          includeInactive: true,
+        });
         setForm({
           name: product.name,
           breadcrumbs: product.breadcrumbs,

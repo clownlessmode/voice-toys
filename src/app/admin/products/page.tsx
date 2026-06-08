@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getProducts, Product } from "@/components/entities/product";
+import { getPrimaryProductImageSrc } from "@/lib/product-utils";
 import { Edit, Trash2, Plus, Search, Filter } from "lucide-react";
 
 export default function AdminProducts() {
@@ -19,6 +20,7 @@ export default function AdminProducts() {
         search: searchQuery || undefined,
         type: filterType || undefined,
         limit: 100,
+        includeInactive: true,
       });
       setProducts(response.products);
       setError(null);
@@ -168,7 +170,7 @@ export default function AdminProducts() {
                       <div className="flex items-center">
                         <img
                           className="h-10 w-10 rounded-lg object-cover"
-                          src={product.images[0]}
+                          src={getPrimaryProductImageSrc(product.images)}
                           alt={product.name}
                         />
                         <div className="ml-4">

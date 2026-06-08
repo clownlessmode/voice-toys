@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminAuthenticatedRequest } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformProductFromDB,
@@ -21,9 +22,18 @@ export async function GET(request: NextRequest) {
     const offset = searchParams.get("offset");
     const page = searchParams.get("page");
     const favorite = searchParams.get("favorite");
+    const includeInactiveRequested =
+      searchParams.get("includeInactive") === "true";
+    const includeInactive =
+      includeInactiveRequested && isAdminAuthenticatedRequest(request);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {};
+
+    if (!includeInactive) {
+      whereClause.isActive = true;
+      whereClause.price = { gt: 1 };
+    }
 
     // Поиск по названию и описанию (SQLite case-insensitive)
     if (search) {

@@ -12,6 +12,7 @@ import { useFavorites } from "@/store/favoritesStore";
 import { useState } from "react";
 import Link from "next/link";
 import { formatAgeGroups } from "@/lib/age-utils";
+import { getPrimaryProductImageSrc } from "@/lib/product-utils";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -103,7 +104,7 @@ export default function Product({ product }: { product: ProductType }) {
       >
         <motion.div variants={imageVariants}>
           <Image
-            src={product.images[0]}
+            src={getPrimaryProductImageSrc(product.images)}
             alt={product.name}
             width={100 * 10}
             height={100 * 10}

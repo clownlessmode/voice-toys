@@ -1,0 +1,33 @@
+{
+  "nmID": 173549012,
+  "imtID": 45100233,
+  "vendorCode": "VT-SAMPLE-001",
+  "brand": "SampleBrand",
+  "title": "Детская <b>игрушка</b> (тестовая карточка)",
+  "description": "<p>Описание с <a href=\"https://example.com\">ссылкой</a> и <i>курсивом</i>.</p>",
+  "subjectName": "Развивающие игрушки",
+  "subjectID": 105,
+  "dimensions": { "width": 12, "height": 8, "length": 25, "isValid": true },
+  "characteristics": [
+    { "id": 1, "name": "Материал", "value": "пластик" },
+    { "name": "Возраст", "value": "3+" }
+  ],
+  "sizes": [
+    {
+      "chrtID": 900012345,
+      "techSizeName": "0 (универсал)",
+      "wbSize": "0",
+      "price": 249900,
+      "discountedPrice": 199900
+    }
+  ],
+  "photos": [
+    {
+      "big": "https://images.example.com/wb/sample/big1.jpg",
+      "c246x328": "https://images.example.com/wb/sample/small1.jpg"
+    }
+  ],
+  "createdAt": "2024-11-01T08:00:00.000Z",
+  "updatedAt": "2025-03-10T16:30:00.000Z",
+  "video": "https://video.example.com/preview.mp4"
+}

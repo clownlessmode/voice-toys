@@ -12,7 +12,6 @@ import H1 from "@/components/ui/typography/H1";
 import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -389,9 +388,7 @@ const CatalogueContent = () => {
                     }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <Link href={`catalogue/${item.id}`}>
-                      <Product product={item} />
-                    </Link>
+                    <Product product={item} />
                   </motion.div>
                 ))
               ) : (

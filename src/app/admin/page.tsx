@@ -104,7 +104,10 @@ export default function AdminDashboard() {
     async function fetchStats() {
       try {
         // Загружаем продукты
-        const productsResponse = await getProducts({ limit: 1000 });
+        const productsResponse = await getProducts({
+          limit: 1000,
+          includeInactive: true,
+        });
 
         // Загружаем заказы
         const ordersResponse = await fetch("/api/orders?limit=1000");

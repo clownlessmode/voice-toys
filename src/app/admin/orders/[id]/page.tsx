@@ -18,6 +18,7 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/lib/order-utils";
+import { getPrimaryProductImageSrc } from "@/lib/product-utils";
 
 // Компонент для печати заказа
 const PrintableOrder = ({ order }: { order: Order }) => (
@@ -362,13 +363,11 @@ export default function OrderDetailsPage() {
                   key={item.id}
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >
-                  {item.product.images && item.product.images.length > 0 && (
-                    <img
-                      src={item.product.images[0]}
-                      alt={item.product.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                  )}
+                  <img
+                    src={getPrimaryProductImageSrc(item.product.images)}
+                    alt={item.product.name}
+                    className="w-16 h-16 object-cover rounded"
+                  />
                   <div className="flex-1">
                     <h3 className="font-medium">{item.product.name}</h3>
                     <p className="text-sm text-gray-600">

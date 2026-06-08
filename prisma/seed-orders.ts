@@ -78,7 +78,9 @@ async function main() {
   console.log("🗑️ Очистили таблицы заказов");
 
   // Получаем все продукты для расчета цен
-  const products = await prisma.product.findMany();
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+  });
   const productPriceMap = new Map(
     products.map((product) => [product.id, product.price])
   );

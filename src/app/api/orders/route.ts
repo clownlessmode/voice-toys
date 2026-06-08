@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Проверяем существование всех продуктов и получаем их цены
     const productIds = body.items.map((item) => item.productId);
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, isActive: true },
     });
 
     if (products.length !== productIds.length) {

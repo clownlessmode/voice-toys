@@ -9,6 +9,10 @@ datasource db {
 
 model Product {
   id                String            @id @default(cuid())
+  /// Wildberries card nmID; Int matches typical catalog IDs (see migration note).
+  wbNmId            Int?              @unique
+  isActive          Boolean           @default(true)
+  wbCardUpdatedAt   DateTime?
   name              String
   breadcrumbs       String            // JSON string
   images            String            // JSON string array
@@ -31,6 +35,25 @@ model Product {
   updatedAt         DateTime          @updatedAt
 
   @@map("products")
+}
+
+/// Global WB incremental/full sync cursor (not per-product).
+model WbSyncState {
+  key             String       @id @default("default")
+  mode            WbSyncMode   @default(incremental)
+  /// Last cursor boundary as returned by WB (ISO string).
+  cursorUpdatedAt String?
+  cursorNmId      Int?
+  lastRunAt       DateTime?
+  lastSuccessAt   DateTime?
+  lastError       String?
+
+  @@map("wb_sync_state")
+}
+
+enum WbSyncMode {
+  incremental
+  full
 }
 
 model ProductCharacteristic {

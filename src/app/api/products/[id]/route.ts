@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminAuthenticatedRequest } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformProductFromDB,
@@ -13,6 +14,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const includeInactiveRequested =
+      request.nextUrl.searchParams.get("includeInactive") === "true";
+    const includeInactive =
+      includeInactiveRequested && isAdminAuthenticatedRequest(request);
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -21,6 +26,12 @@ export async function GET(
     });
 
     if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+    if (!includeInactive && !product.isActive) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+    if (!includeInactive && product.price <= 1) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 

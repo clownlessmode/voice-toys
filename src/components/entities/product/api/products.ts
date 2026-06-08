@@ -7,6 +7,8 @@ export interface GetProductsParams {
   limit?: number;
   page?: number;
   favorite?: boolean;
+  /** Admin / export: include deactivated catalog rows */
+  includeInactive?: boolean;
 }
 
 export interface ProductsApiResponse {
@@ -28,6 +30,7 @@ export async function getProducts(
   if (params.limit) searchParams.set("limit", params.limit.toString());
   if (params.page) searchParams.set("page", params.page.toString());
   if (params.favorite) searchParams.set("favorite", "true");
+  if (params.includeInactive) searchParams.set("includeInactive", "true");
 
   const response = await fetch(`/api/products?${searchParams.toString()}`);
 
@@ -39,8 +42,13 @@ export async function getProducts(
 }
 
 // Получить продукт по ID
-export async function getProductById(id: string): Promise<Product> {
-  const response = await fetch(`/api/products/${id}`);
+export async function getProductById(
+  id: string,
+  options?: { includeInactive?: boolean }
+): Promise<Product> {
+  const qs =
+    options?.includeInactive === true ? "?includeInactive=true" : "";
+  const response = await fetch(`/api/products/${id}${qs}`);
 
   if (!response.ok) {
     if (response.status === 404) {

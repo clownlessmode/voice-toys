@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useFavorites } from "@/store/favoritesStore"; // Импортируем ваш хук
 import ProductSlider from "@/components/ui/components/product-slider";
 import { X } from "lucide-react";
+import { getPrimaryProductImageSrc } from "@/lib/product-utils";
 
 const faq = [
   {
@@ -153,7 +154,7 @@ const Page = () => {
         // Fetch similar products based on the first category in breadcrumbs
         if (productData.breadcrumbs.length > 0) {
           const similar = await getProductsByCategory(
-            productData.breadcrumbs[0]
+            productData.breadcrumbs[0],
           );
           // Filter out current product and limit to 4 similar products
           const filteredSimilar = similar
@@ -212,7 +213,7 @@ const Page = () => {
           "px-[10px] gap-[80px]",
           "xl:px-[50px] xl:gap-[100px]",
           "2xl:px-[100px] 2xl:gap-[150px]",
-          "flex flex-col items-center justify-start min-h-screen bg-body-background"
+          "flex flex-col items-center justify-start min-h-screen bg-body-background",
         )}
       >
         <Header />
@@ -277,7 +278,7 @@ const Page = () => {
         "px-[10px] gap-[40px]",
         "xl:px-[50px] xl:gap-[50px]",
         "2xl:px-[100px] 2xl:gap-[60px]",
-        "flex flex-col items-center justify-start min-h-screen bg-body-background"
+        "flex flex-col items-center justify-start min-h-screen bg-body-background",
       )}
     >
       {/* Видео диалог */}
@@ -368,7 +369,7 @@ const Page = () => {
                     >
                       <Image
                         className="aspect-square object-cover rounded-2xl w-full h-full lg:h-fit "
-                        src={images[0]}
+                        src={getPrimaryProductImageSrc(images)}
                         alt={product.name}
                         width={1200}
                         height={1200}
@@ -436,7 +437,7 @@ const Page = () => {
                             >
                               <Image
                                 className="aspect-square object-cover rounded-2xl w-full h-full"
-                                src={image}
+                                src={getPrimaryProductImageSrc([image])}
                                 alt={`image ${index + 1}`}
                                 width={1200}
                                 height={1200}
@@ -722,14 +723,14 @@ const Page = () => {
                     >
                       {product.characteristics.map((char, index) => (
                         <motion.div
-                          className="flex justify-between items-center"
+                          className="flex justify-between items-start gap-[64px]"
                           key={index}
                           variants={itemVariants}
                         >
                           <Descriptor className="text-foreground/20">
                             {char.key}
                           </Descriptor>
-                          <Descriptor className="text-foreground">
+                          <Descriptor className="text-foreground text-right">
                             {char.value}
                           </Descriptor>
                         </motion.div>
