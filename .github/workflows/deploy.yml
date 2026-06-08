@@ -1,0 +1,45 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            export PATH="/root/.bun/bin:/usr/local/bin:$PATH"
+
+            cd /var/www/voice-toys
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            bun install --frozen-lockfile
+            bunx prisma migrate deploy
+            bun run build
+
+            if pm2 describe voice-toys >/dev/null 2>&1; then
+              pm2 restart voice-toys --update-env
+            else
+              pm2 start ecosystem.config.cjs
+            fi
+            pm2 save
+
+            echo "Deploy finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
