@@ -40,7 +40,8 @@ const components: Components = {
   li: ({ children }) => <li>{children}</li>,
   a: ({ href, children }) => {
     const url = href ?? "#";
-    const className = "text-primary underline underline-offset-2 hover:opacity-80";
+    const className =
+      "text-foreground underline underline-offset-2 hover:text-gray-600";
 
     if (url.startsWith("/")) {
       return (

@@ -69,12 +69,15 @@ async function LegalPageContent({ slug }: { slug: LegalDocSlug }) {
         <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
           <Link
             href={`/legal/${otherSlug}`}
-            className="text-primary underline underline-offset-2"
+            className="text-foreground underline underline-offset-2 hover:text-gray-600"
           >
             {LEGAL_DOCS[otherSlug].title}
           </Link>
           <span>·</span>
-          <Link href="/" className="text-primary underline underline-offset-2">
+          <Link
+            href="/"
+            className="text-foreground underline underline-offset-2 hover:text-gray-600"
+          >
             На главную
           </Link>
         </div>
