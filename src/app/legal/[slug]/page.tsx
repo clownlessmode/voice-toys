@@ -12,7 +12,6 @@ import {
 } from "@/lib/legal-docs";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -40,8 +39,6 @@ export async function generateMetadata({
 async function LegalPageContent({ slug }: { slug: LegalDocSlug }) {
   const doc = LEGAL_DOCS[slug];
   const content = loadLegalDocMarkdown(slug);
-  const otherSlug: LegalDocSlug =
-    slug === "privacy-policy" ? "user-consent" : "privacy-policy";
 
   return (
     <main
@@ -64,22 +61,6 @@ async function LegalPageContent({ slug }: { slug: LegalDocSlug }) {
 
         <div className="bg-white rounded-2xl px-6 py-8 md:px-10 md:py-10 shadow-sm">
           <LegalMarkdown content={content} />
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
-          <Link
-            href={`/legal/${otherSlug}`}
-            className="text-foreground underline underline-offset-2 hover:text-gray-600"
-          >
-            {LEGAL_DOCS[otherSlug].title}
-          </Link>
-          <span>·</span>
-          <Link
-            href="/"
-            className="text-foreground underline underline-offset-2 hover:text-gray-600"
-          >
-            На главную
-          </Link>
         </div>
       </div>
 
