@@ -12,6 +12,7 @@ interface FooterGroupItem {
 interface FooterGroupMenuItem {
   title: string;
   link: string;
+  newTab?: boolean;
 }
 
 const main: FooterGroupMenuItem[] = [
@@ -37,10 +38,12 @@ const clients: FooterGroupMenuItem[] = [
   {
     title: "Пользовательское соглашение",
     link: "/legal/user-consent",
+    newTab: true,
   },
   {
     title: "Политика конфиденциальности",
     link: "/legal/privacy-policy",
+    newTab: true,
   },
 ];
 
@@ -77,7 +80,13 @@ const FooterGroup = ({ title, items }: FooterGroupItem) => {
       <H3>{title}</H3>
       <div className="flex flex-col gap-[16px]">
         {items.map((item, index) => (
-          <Link href={item.link} key={index}>
+          <Link
+            href={item.link}
+            key={index}
+            {...(item.newTab
+              ? { target: "_blank", rel: "noopener noreferrer" }
+              : {})}
+          >
             <Navigation>{item.title}</Navigation>
           </Link>
         ))}

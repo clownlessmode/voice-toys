@@ -44,8 +44,15 @@ const components: Components = {
       "text-foreground underline underline-offset-2 hover:text-gray-600";
 
     if (url.startsWith("/")) {
+      const isLegalDoc = url.startsWith("/legal/");
       return (
-        <Link href={url} className={className}>
+        <Link
+          href={url}
+          className={className}
+          {...(isLegalDoc
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
+        >
           {children}
         </Link>
       );
