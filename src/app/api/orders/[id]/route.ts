@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import { transformOrderFromDB } from "@/lib/order-utils";
 import {
@@ -56,6 +57,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
     const body: UpdateOrderStatusRequest = await request.json();
 
@@ -169,6 +173,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
 
     // Проверяем существование заказа

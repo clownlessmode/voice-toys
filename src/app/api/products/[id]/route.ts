@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticatedRequest } from "@/lib/admin-request";
+import { assertAdmin, isAdminAuthenticatedRequest } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformProductFromDB,
@@ -17,7 +17,7 @@ export async function GET(
     const includeInactiveRequested =
       request.nextUrl.searchParams.get("includeInactive") === "true";
     const includeInactive =
-      includeInactiveRequested && isAdminAuthenticatedRequest(request);
+      includeInactiveRequested && (await isAdminAuthenticatedRequest(request));
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -56,6 +56,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
     const body: UpdateProductRequest = await request.json();
 
@@ -135,6 +138,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
     const body = await request.json();
 
@@ -222,6 +228,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
 
     // Проверяем существование продукта

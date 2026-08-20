@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticatedRequest } from "@/lib/admin-request";
+import { assertAdmin, isAdminAuthenticatedRequest } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformProductFromDB,
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const includeInactiveRequested =
       searchParams.get("includeInactive") === "true";
     const includeInactive =
-      includeInactiveRequested && isAdminAuthenticatedRequest(request);
+      includeInactiveRequested && (await isAdminAuthenticatedRequest(request));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {};
@@ -151,6 +151,9 @@ export async function GET(request: NextRequest) {
 // POST - Создание нового продукта
 export async function POST(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const body: CreateProductRequest = await request.json();
 
     // Валидация данных

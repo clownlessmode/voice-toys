@@ -18,7 +18,7 @@ function parseMode(body: unknown): SyncMode {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = assertAdmin(request);
+  const auth = await assertAdmin(request);
   if (auth) return auth;
 
   let body: unknown;

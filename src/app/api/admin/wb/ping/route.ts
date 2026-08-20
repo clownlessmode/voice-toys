@@ -5,7 +5,7 @@ import { WbClient } from "@/lib/wb/client";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const auth = assertAdmin(request);
+  const auth = await assertAdmin(request);
   if (auth) return auth;
 
   try {

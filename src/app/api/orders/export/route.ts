@@ -1,23 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import { transformOrderFromDB } from "@/lib/order-utils";
 import {
+  OrderStatus,
   OrderFilters,
   ORDER_STATUS_LABELS,
 } from "@/components/entities/order/model/types";
-import * as XLSX from "xlsx";
+import writeXlsxFile, { type SheetData } from "write-excel-file/node";
+
+const MAX_EXPORT_LIMIT = 10000;
+const EXCEL_FORMULA_PREFIX_PATTERN = /^\s*[=+\-@]/;
+const ORDER_STATUSES = new Set<OrderStatus>(
+  Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]
+);
+
+function parseExportLimit(value: string | null): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return MAX_EXPORT_LIMIT;
+  }
+
+  return Math.min(parsed, MAX_EXPORT_LIMIT);
+}
+
+function parseOrderStatus(value: string | null): OrderStatus | undefined {
+  if (!value) return undefined;
+
+  return ORDER_STATUSES.has(value as OrderStatus)
+    ? (value as OrderStatus)
+    : undefined;
+}
+
+function parseDateParam(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function safeExcelText(value: unknown): string {
+  const text = String(value ?? "");
+
+  return EXCEL_FORMULA_PREFIX_PATTERN.test(text) ? `'${text}` : text;
+}
 
 // GET - Экспорт заказов в Excel
 export async function GET(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { searchParams } = new URL(request.url);
 
     const filters: OrderFilters = {
-      status: (searchParams.get("status") as any) || undefined,
+      status: parseOrderStatus(searchParams.get("status")),
       search: searchParams.get("search") || undefined,
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
-      limit: parseInt(searchParams.get("limit") || "10000"),
+      limit: parseExportLimit(searchParams.get("limit")),
     };
 
     // Построение условий фильтрации
@@ -38,12 +81,12 @@ export async function GET(request: NextRequest) {
 
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {};
-      if (filters.dateFrom) {
-        where.createdAt.gte = new Date(filters.dateFrom);
-      }
-      if (filters.dateTo) {
-        where.createdAt.lte = new Date(filters.dateTo);
-      }
+
+      const dateFrom = parseDateParam(filters.dateFrom);
+      const dateTo = parseDateParam(filters.dateTo);
+
+      if (dateFrom) where.createdAt.gte = dateFrom;
+      if (dateTo) where.createdAt.lte = dateTo;
     }
 
     // Получение всех заказов для экспорта
@@ -63,33 +106,35 @@ export async function GET(request: NextRequest) {
     const transformedOrders = orders.map(transformOrderFromDB);
 
     // Подготовка данных для Excel
-    const excelData = transformedOrders.map((order) => {
+    const excelRows = transformedOrders.map((order) => {
       const itemsText = order.items
         .map(
-          (item) => `${item.product.name} x${item.quantity} (${item.price} ₽)`
+          (item) =>
+            `${safeExcelText(item.product.name)} x${item.quantity} (${item.price} ₽)`
         )
         .join("; ");
 
-      return {
-        "Номер заказа": order.orderNumber,
-        Статус: ORDER_STATUS_LABELS[order.status] || order.status,
-        "Имя клиента": order.customerName,
-        Телефон: order.customerPhone,
-        Email: order.customerEmail || "",
-        "Тип доставки":
-          order.deliveryType === "pickup" ? "Самовывоз" : "Доставка",
-        "Адрес доставки": order.deliveryAddress || "",
-        Товары: itemsText,
-        "Количество товаров": order.items.length,
-        "Общая сумма": `${order.totalAmount} ${order.currency}`,
-        "Дата создания": new Date(order.createdAt).toLocaleDateString("ru-RU", {
+      return [
+        safeExcelText(order.orderNumber),
+        ORDER_STATUS_LABELS[order.status] || order.status,
+        safeExcelText(order.customerName),
+        safeExcelText(order.customerPhone),
+        safeExcelText(order.customerEmail),
+        safeExcelText(
+          order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"
+        ),
+        safeExcelText(order.deliveryAddress),
+        safeExcelText(itemsText),
+        order.items.length,
+        safeExcelText(`${order.totalAmount} ${order.currency}`),
+        new Date(order.createdAt).toLocaleDateString("ru-RU", {
           year: "numeric",
           month: "long",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         }),
-        "Дата оплаты": order.paidAt
+        order.paidAt
           ? new Date(order.paidAt).toLocaleDateString("ru-RU", {
               year: "numeric",
               month: "long",
@@ -98,44 +143,56 @@ export async function GET(request: NextRequest) {
               minute: "2-digit",
             })
           : "",
-      };
+      ];
     });
 
-    // Создание workbook и worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(excelData);
-
-    // Настройка ширины колонок
-    const colWidths = [
-      { wch: 15 }, // Номер заказа
-      { wch: 12 }, // Статус
-      { wch: 20 }, // Имя клиента
-      { wch: 15 }, // Телефон
-      { wch: 25 }, // Email
-      { wch: 12 }, // Тип доставки
-      { wch: 30 }, // Адрес доставки
-      { wch: 50 }, // Товары
-      { wch: 8 }, // Количество
-      { wch: 15 }, // Сумма
-      { wch: 20 }, // Дата создания
-      { wch: 20 }, // Дата оплаты
+    const sheetData: SheetData = [
+      [
+        "Номер заказа",
+        "Статус",
+        "Имя клиента",
+        "Телефон",
+        "Email",
+        "Тип доставки",
+        "Адрес доставки",
+        "Товары",
+        "Количество товаров",
+        "Общая сумма",
+        "Дата создания",
+        "Дата оплаты",
+      ].map((value) => ({
+        value,
+        fontWeight: "bold",
+        backgroundColor: "#F3F4F6",
+        alignVertical: "center",
+      })),
+      ...excelRows,
     ];
-    ws["!cols"] = colWidths;
-
-    // Добавляем worksheet в workbook
-    XLSX.utils.book_append_sheet(wb, ws, "Заказы");
 
     // Генерируем Excel файл
-    const excelBuffer = XLSX.write(wb, {
-      type: "buffer",
-      bookType: "xlsx",
-    });
+    const excelBuffer = await writeXlsxFile(sheetData, {
+      sheet: "Заказы",
+      columns: [
+        { width: 15 }, // Номер заказа
+        { width: 12 }, // Статус
+        { width: 20 }, // Имя клиента
+        { width: 15 }, // Телефон
+        { width: 25 }, // Email
+        { width: 12 }, // Тип доставки
+        { width: 30 }, // Адрес доставки
+        { width: 50 }, // Товары
+        { width: 16 }, // Количество
+        { width: 15 }, // Сумма
+        { width: 20 }, // Дата создания
+        { width: 20 }, // Дата оплаты
+      ],
+    }).toBuffer();
 
     // Формируем имя файла
     const fileName = `orders-${new Date().toISOString().split("T")[0]}.xlsx`;
 
     // Возвращаем файл
-    return new NextResponse(excelBuffer, {
+    return new NextResponse(new Uint8Array(excelBuffer), {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

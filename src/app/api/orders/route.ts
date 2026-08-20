@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformOrderFromDB,
@@ -14,6 +15,9 @@ import {
 // GET - Получение списка заказов
 export async function GET(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { searchParams } = new URL(request.url);
 
     const filters: OrderFilters = {

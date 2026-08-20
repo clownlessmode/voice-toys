@@ -1,20 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   PromoCodeFilters,
   CreatePromoCodeRequest,
+  PromoCodeType,
 } from "@/components/entities/promo-code/model/types";
-import { PromoCodeType } from "@prisma/client";
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  PromoCodeType as PrismaPromoCodeType,
+} from "@prisma/client";
+
+function parsePromoCodeType(value: string | null): PromoCodeType | undefined {
+  if (!value) return undefined;
+
+  return Object.values(PromoCodeType).includes(value as PromoCodeType)
+    ? (value as PromoCodeType)
+    : undefined;
+}
 
 // GET - Получение списка промокодов
 export async function GET(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { searchParams } = new URL(request.url);
 
     const filters: PromoCodeFilters = {
       search: searchParams.get("search") || undefined,
-      type: (searchParams.get("type") as PromoCodeType | null) || undefined,
+      type: parsePromoCodeType(searchParams.get("type")),
       isActive:
         searchParams.get("isActive") === "true"
           ? true
@@ -39,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (filters.type) {
-      where.type = filters.type;
+      where.type = filters.type as PrismaPromoCodeType;
     }
 
     if (filters.isActive !== undefined) {
@@ -78,6 +93,9 @@ export async function GET(request: NextRequest) {
 // POST - Создание нового промокода
 export async function POST(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const body: CreatePromoCodeRequest = await request.json();
 
     // Валидация обязательных полей

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import {
   transformProductFromDB,
@@ -9,6 +10,9 @@ import { CreateProductRequest } from "@/components/entities/product/model/types"
 // POST - Массовое создание продуктов
 export async function POST(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const body: { products: CreateProductRequest[] } = await request.json();
 
     if (!Array.isArray(body.products) || body.products.length === 0) {
@@ -52,6 +56,8 @@ export async function POST(request: NextRequest) {
             returnDays: productData.returnDays || 14,
             returnDetails: productData.returnDetails,
             description: productData.description,
+            categories: JSON.stringify(productData.categories || []),
+            ageGroups: JSON.stringify(productData.ageGroups || []),
             characteristics: {
               create: productData.characteristics.map((char) => ({
                 key: char.key,
@@ -90,6 +96,9 @@ export async function POST(request: NextRequest) {
 // DELETE - Массовое удаление продуктов
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const body: { ids: string[] } = await request.json();
 
     if (!Array.isArray(body.ids) || body.ids.length === 0) {

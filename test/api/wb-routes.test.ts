@@ -3,6 +3,11 @@ import { NextRequest } from "next/server";
 import { POST as postAdminWbSync } from "@/app/api/admin/wb/sync/route";
 import { GET as getCronWbSync, POST as postCronWbSync } from "@/app/api/cron/wb-sync/route";
 import { runWbProductSync } from "@/lib/wb/sync-products";
+import { ADMIN_AUTH_COOKIE, createAdminSessionCookie } from "@/lib/admin-auth";
+
+process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-pass";
+process.env.ADMIN_SESSION_SECRET =
+  process.env.ADMIN_SESSION_SECRET || "test-admin-session-secret";
 
 vi.mock("@/lib/wb/sync-products", () => ({
   runWbProductSync: vi.fn(),
@@ -38,12 +43,13 @@ describe("POST /api/admin/wb/sync", () => {
 
   it("returns 200 and passes through runWbProductSync result when admin cookie is set", async () => {
     vi.mocked(runWbProductSync).mockResolvedValue(mockSyncResult);
+    const sessionCookie = await createAdminSessionCookie();
     const request = new NextRequest(`${baseUrl}/api/admin/wb/sync`, {
       method: "POST",
       body: JSON.stringify({ mode: "full" }),
       headers: {
         "Content-Type": "application/json",
-        cookie: "admin-auth=authenticated",
+        cookie: `${ADMIN_AUTH_COOKIE}=${sessionCookie}`,
       },
     });
     const res = await postAdminWbSync(request);

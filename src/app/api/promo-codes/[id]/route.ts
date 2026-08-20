@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { prisma } from "@/lib/prisma";
 import { UpdatePromoCodeRequest } from "@/components/entities/promo-code/model/types";
 
@@ -8,6 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
 
     const promoCode = await prisma.promoCode.findUnique({
@@ -37,6 +41,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
     const body: UpdatePromoCodeRequest = await request.json();
 
@@ -74,6 +81,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { id } = await params;
 
     // Проверяем существование промокода

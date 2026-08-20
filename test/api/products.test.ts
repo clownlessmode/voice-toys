@@ -3,9 +3,50 @@ import { GET, POST } from "@/app/api/products/route";
 import { GET as GetProductById, DELETE } from "@/app/api/products/[id]/route";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ADMIN_AUTH_COOKIE, createAdminSessionCookie } from "@/lib/admin-auth";
+
+process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-pass";
+process.env.ADMIN_SESSION_SECRET =
+  process.env.ADMIN_SESSION_SECRET || "test-admin-session-secret";
+
+async function createAdminCookieHeader(): Promise<string> {
+  return `${ADMIN_AUTH_COOKIE}=${await createAdminSessionCookie()}`;
+}
 
 describe("Products API", () => {
   const baseUrl = "http://localhost:3000";
+  const testCategory = "Интерактивные игрушки";
+  const fixtureProductName = "TEST-PRODUCT-SECURITY-AUTH";
+  let fixtureProductId: string;
+
+  beforeAll(async () => {
+    await prisma.product.deleteMany({ where: { name: fixtureProductName } });
+    const fixtureProduct = await prisma.product.create({
+      data: {
+        name: fixtureProductName,
+        description: "Тестовый продукт для API",
+        price: 1500,
+        images: JSON.stringify(["https://example.com/test.jpg"]),
+        breadcrumbs: JSON.stringify(["Главная", "Каталог", testCategory]),
+        pickupAvailability: "Самовывоз сегодня",
+        deliveryAvailability: "Доставка от 1 дня",
+        returnDetails: "Тестовый возврат",
+        categories: JSON.stringify([testCategory]),
+        ageGroups: JSON.stringify(["3-4года"]),
+        characteristics: {
+          create: [
+            { key: "Материал", value: "Дерево" },
+            { key: "Возраст", value: "3+" },
+          ],
+        },
+      },
+    });
+    fixtureProductId = fixtureProduct.id;
+  });
+
+  afterAll(async () => {
+    await prisma.product.deleteMany({ where: { name: fixtureProductName } });
+  });
 
   describe("GET /api/products", () => {
     it("should return products list", async () => {
@@ -39,16 +80,14 @@ describe("Products API", () => {
     });
 
     it("should filter products by type", async () => {
-      const request = new NextRequest(
-        `${baseUrl}/api/products?type=Интерактивные игрушки`
-      );
+      const request = new NextRequest(`${baseUrl}/api/products?type=${testCategory}`);
       const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(
-        data.products.every((p: { breadcrumbs: string[] }) =>
-          p.breadcrumbs.includes("Интерактивные игрушки")
+        data.products.every((p: { breadcrumbs: string[]; categories?: string[] }) =>
+          p.breadcrumbs.includes(testCategory) || p.categories?.includes(testCategory)
         )
       ).toBe(true);
     });
@@ -67,13 +106,13 @@ describe("Products API", () => {
 
   describe("GET /api/products/[id]", () => {
     it("should return a specific product", async () => {
-      const request = new NextRequest(`${baseUrl}/api/products/225904711`);
-      const params = Promise.resolve({ id: "225904711" });
+      const request = new NextRequest(`${baseUrl}/api/products/${fixtureProductId}`);
+      const params = Promise.resolve({ id: fixtureProductId });
       const response = await GetProductById(request, { params });
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data).toHaveProperty("id", "225904711");
+      expect(data).toHaveProperty("id", fixtureProductId);
       expect(data).toHaveProperty("name");
       expect(data).toHaveProperty("price");
       expect(data).toHaveProperty("images");
@@ -116,7 +155,10 @@ describe("Products API", () => {
       const request = new NextRequest(`${baseUrl}/api/products`, {
         method: "POST",
         body: JSON.stringify(productData),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          cookie: await createAdminCookieHeader(),
+        },
       });
 
       const response = await POST(request);
@@ -130,7 +172,8 @@ describe("Products API", () => {
       // Cleanup - удаляем созданный продукт
       if (data.id) {
         const deleteRequest = new NextRequest(
-          `${baseUrl}/api/products/${data.id}`
+          `${baseUrl}/api/products/${data.id}`,
+          { headers: { cookie: await createAdminCookieHeader() } }
         );
         const deleteParams = Promise.resolve({ id: data.id });
         await DELETE(deleteRequest, { params: deleteParams });
@@ -147,15 +190,16 @@ describe("Products API", () => {
       const request = new NextRequest(`${baseUrl}/api/products`, {
         method: "POST",
         body: JSON.stringify(invalidData),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          cookie: await createAdminCookieHeader(),
+        },
       });
 
       const response = await POST(request);
       expect(response.status).toBe(400);
     });
   });
-
-  const adminAuthCookie = "admin-auth=authenticated";
 
   describe("includeInactive (isActive) gating", () => {
     const inactiveName = "TEST-INACTIVE-INCLUDE-WB";
@@ -213,7 +257,7 @@ describe("Products API", () => {
     it("GET /api/products: admin cookie + includeInactive=true includes inactive", async () => {
       const request = new NextRequest(
         `${baseUrl}/api/products?includeInactive=true&limit=100`,
-        { headers: { cookie: adminAuthCookie } }
+        { headers: { cookie: await createAdminCookieHeader() } }
       );
       const response = await GET(request);
       const data = await response.json();
@@ -237,7 +281,7 @@ describe("Products API", () => {
     it("GET /api/products/[id]: admin cookie + includeInactive=true returns inactive", async () => {
       const request = new NextRequest(
         `${baseUrl}/api/products/${inactiveProductId}?includeInactive=true`,
-        { headers: { cookie: adminAuthCookie } }
+        { headers: { cookie: await createAdminCookieHeader() } }
       );
       const params = Promise.resolve({ id: inactiveProductId });
       const response = await GetProductById(request, { params });

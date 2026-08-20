@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const DEFAULT_TEST_PHONE = "79001234567";
 
 export async function GET(request: NextRequest) {
-  const auth = assertAdmin(request);
+  const auth = await assertAdmin(request);
   if (auth) return auth;
 
   if (!isOzonConfigured()) {

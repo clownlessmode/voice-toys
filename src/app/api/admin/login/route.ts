@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const ADMIN_PASSWORD = "10Fhzx3481Polk";
+import {
+  ADMIN_AUTH_COOKIE,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  createAdminSessionCookie,
+  isAdminAuthConfigured,
+  isValidAdminPassword,
+} from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
 
-    if (password === ADMIN_PASSWORD) {
+    if (!isAdminAuthConfigured()) {
+      console.error("Admin auth is not configured");
+      return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
+    }
+
+    if (await isValidAdminPassword(password)) {
       // Создаем ответ с установкой cookie
       const response = NextResponse.json({ success: true });
+      const sessionCookie = await createAdminSessionCookie();
 
       // Устанавливаем cookie на 24 часа
-      response.cookies.set("admin-auth", "authenticated", {
+      response.cookies.set(ADMIN_AUTH_COOKIE, sessionCookie, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 60 * 60 * 24, // 24 часа
+        maxAge: ADMIN_SESSION_MAX_AGE_SECONDS, // 24 часа
         path: "/",
       });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertAdmin } from "@/lib/admin-request";
 import { s3Storage } from "@/lib/s3-storage";
 import { ImageProcessor, generateFileName } from "@/lib/image-utils";
 
@@ -22,6 +23,9 @@ function isValidImage(mimeType: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const folder = (formData.get("folder") as string) || "uploads";
@@ -66,9 +70,9 @@ export async function POST(request: NextRequest) {
       // Читаем файл
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const buffer = Buffer.from(uint8Array);
+      const buffer: Buffer = Buffer.from(uint8Array);
 
-      let processedBuffer = buffer;
+      let processedBuffer: Buffer = buffer;
       let fileExtension = "";
       let mimeType = file.type;
       let metadata = {};
@@ -157,6 +161,9 @@ export async function POST(request: NextRequest) {
 // DELETE - Удаление файла
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await assertAdmin(request);
+    if (auth) return auth;
+
     const { searchParams } = new URL(request.url);
     const url = searchParams.get("url");
     const key = searchParams.get("key");
