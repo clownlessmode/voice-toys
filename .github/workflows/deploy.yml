@@ -72,4 +72,25 @@ jobs:
             systemctl restart voice-toys
             systemctl is-active --quiet voice-toys
 
+            for attempt in $(seq 1 10); do
+              if curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/ >/dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 10 ]; then
+                echo "Application health check failed" >&2
+                exit 1
+              fi
+              sleep 3
+            done
+
             echo "Deploy finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+      - name: Verify production
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 30 \
+            https://voicetoys.ru/ >/dev/null
+          points_json="$(curl --fail --silent --show-error --retry 5 --retry-all-errors --max-time 30 \
+            'https://voicetoys.ru/api/ozon-delivery/points?limit=1')"
+          jq -e '.points | type == "array" and length > 0' <<<"$points_json" >/dev/null
