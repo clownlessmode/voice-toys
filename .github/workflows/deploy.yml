@@ -28,7 +28,7 @@ jobs:
           command_timeout: 15m
           script: |
             set -euo pipefail
-            export PATH="/root/.bun/bin:/usr/local/bin:$PATH"
+            export PATH="/usr/local/lib/nodejs/node-v24.19.0-linux-x64/bin:/usr/local/bin:/usr/bin:/bin"
 
             cd /var/www/voice-toys
 
@@ -41,6 +41,7 @@ jobs:
               fi
               printf '%s=%s\n' "$env_key" "$env_value" >> "$env_tmp_file"
               chmod 600 "$env_tmp_file"
+              chown voicetoys:voicetoys "$env_tmp_file"
               mv "$env_tmp_file" .env.local
             }
 
@@ -49,18 +50,26 @@ jobs:
             update_env_file OZON_DELIVERY_CLIENT_ID "$OZON_DELIVERY_CLIENT_ID"
             update_env_file OZON_DELIVERY_CLIENT_SECRET "$OZON_DELIVERY_CLIENT_SECRET"
 
-            git fetch origin main
-            git reset --hard origin/main
-
-            bun install --frozen-lockfile
-            bunx prisma migrate deploy
-            bun run build
-
-            if pm2 describe voice-toys >/dev/null 2>&1; then
-              pm2 restart voice-toys --update-env
-            else
-              pm2 start ecosystem.config.cjs
+            database_url="$(sed -n 's/^DATABASE_URL=//p' .env | tail -n 1)"
+            if [[ "$database_url" == file:* ]]; then
+              database_file="${database_url#file:}"
+              if [[ "$database_file" != /* ]]; then
+                database_file="/var/www/voice-toys/prisma/${database_file#./}"
+              fi
+              if [ -f "$database_file" ]; then
+                mkdir -p /var/backups/voice-toys
+                cp "$database_file" "/var/backups/voice-toys/database-$(date -u +%Y%m%dT%H%M%SZ).sqlite"
+              fi
             fi
-            pm2 save
+
+            sudo -u voicetoys -H git fetch origin main
+            sudo -u voicetoys -H git reset --hard origin/main
+
+            sudo -u voicetoys -H env PATH="$PATH" npm ci
+            sudo -u voicetoys -H env PATH="$PATH" npx prisma migrate deploy
+            sudo -u voicetoys -H env PATH="$PATH" npm run build
+
+            systemctl restart voice-toys
+            systemctl is-active --quiet voice-toys
 
             echo "Deploy finished at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
