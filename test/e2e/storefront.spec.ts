@@ -13,6 +13,16 @@ async function addSeedProductToCart(page: Page) {
   await expect(page.locator("button:visible").filter({ hasText: "Добавлено в корзину" })).toBeVisible();
 }
 
+async function chooseFirstOzonPoint(page: Page) {
+  const citySelect = page.getByLabel("Город *");
+  await expect(citySelect).toBeEnabled({ timeout: 30_000 });
+  await expect(citySelect.locator("option")).not.toHaveCount(1, { timeout: 30_000 });
+  await citySelect.selectOption({ index: 1 });
+  const firstPoint = page.getByRole("radio", { name: /Пункт Ozon/ }).first();
+  await expect(firstPoint).toBeVisible();
+  await firstPoint.check();
+}
+
 test("покупатель проходит весь путь, а заказ появляется у администратора", async ({ page }) => {
   await addSeedProductToCart(page);
 
@@ -75,16 +85,53 @@ test("реальная интеграция Ozon согласованно пок
   await page.goto("/order");
   await page.getByLabel("Телефон *").fill("79991234567");
   await page.getByLabel("Тип доставки").selectOption("ozon_pvz");
-  const pointSelect = page.getByLabel("Пункт выдачи Ozon *");
+  const citySelect = page.getByLabel("Город *");
 
   if (apiData.points.length === 0) {
     await expect(page.getByText("Ozon пока не вернул доступные пункты выдачи для этого кабинета")).toBeVisible();
-    await expect(pointSelect).toBeDisabled();
+    await expect(citySelect).toBeDisabled();
     await expect(page.getByRole("button", { name: "Оформить заказ" })).toBeDisabled();
   } else {
-    await expect(pointSelect.locator("option")).toHaveCount(apiData.points.length + 1);
-    await expect(pointSelect).toBeEnabled();
+    const cities = new Set(apiData.points.map((point: { city: string }) => point.city));
+    await expect(citySelect.locator("option")).toHaveCount(cities.size + 1);
+    await expect(citySelect).toBeEnabled();
+    await expect(page.getByTestId("ozon-points-list")).toHaveCount(0);
+    await citySelect.selectOption({ index: 1 });
+    await expect(page.getByTestId("ozon-points-list")).toBeVisible();
   }
+});
+
+test("геолокация выбирает город, после чего ПВЗ появляются списком", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"], { origin: "http://127.0.0.1:3100" });
+  await context.setGeolocation({ latitude: 53.7575, longitude: 87.1360 });
+  await page.route("**/api/ozon-delivery/points?**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        available: true,
+        nextCursor: null,
+        points: [
+          { id: 1, name: "Пункт Ozon", address: "Россия, Кемеровская область, Новокузнецк, улица Кирова, 1",
+            city: "Новокузнецк", type: "PVZ", latitude: 53.7575, longitude: 87.1360, shipmentMethodIds: [11] },
+          { id: 2, name: "Пункт Ozon", address: "Россия, Москва, улица Тверская, 1",
+            city: "Москва", type: "PVZ", latitude: 55.7558, longitude: 37.6173, shipmentMethodIds: [22] },
+        ],
+      }),
+    });
+  });
+
+  await addSeedProductToCart(page);
+  await page.goto("/order");
+  await page.getByLabel("Тип доставки").selectOption("ozon_pvz");
+  await expect(page.getByText("Разрешите геолокацию")).toBeVisible();
+  await expect(page.getByTestId("ozon-points-list")).toHaveCount(0);
+  await page.getByRole("button", { name: "Определить мой город" }).click();
+  await expect(page.getByLabel("Город *")).toHaveValue("Новокузнецк");
+  await expect(page.getByText("Определили город: Новокузнецк")).toBeVisible();
+  const pointsList = page.getByTestId("ozon-points-list");
+  await expect(pointsList.getByText(/улица Кирова, 1/)).toBeVisible();
+  await expect(pointsList.getByText(/улица Тверская, 1/)).toHaveCount(0);
 });
 
 test("покупатель получает живой расчёт Ozon без создания заказа", async ({ page }) => {
@@ -106,10 +153,7 @@ test("покупатель получает живой расчёт Ozon без 
   await page.getByLabel("Телефон *").fill(phone!);
   await page.getByLabel("Тип доставки").selectOption("ozon_pvz");
 
-  const pointSelect = page.getByLabel("Пункт выдачи Ozon *");
-  await expect(pointSelect).toBeEnabled({ timeout: 30_000 });
-  await expect(pointSelect.locator("option")).not.toHaveCount(1, { timeout: 30_000 });
-  await pointSelect.selectOption({ index: 1 });
+  await chooseFirstOzonPoint(page);
 
   await expect(page.getByText(/Доставка: \d+(?:[.,]\d+)? ₽/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Оформить заказ" })).toBeEnabled();
@@ -139,6 +183,11 @@ test("товар дешевле 100 рублей доступен только �
   });
   expect(productResponse.status()).toBe(201);
   const product = await productResponse.json() as { id: string };
+
+  await page.goto("/catalogue");
+  const catalogueCard = page.locator(`a[href="/catalogue/${product.id}"]`).first();
+  await expect(catalogueCard).toBeVisible();
+  await expect(catalogueCard).not.toContainText("Только самовывоз");
 
   await page.goto(`/catalogue/${product.id}`);
   await expect(page.locator("p:visible").filter({
@@ -180,10 +229,7 @@ test("оплаченный заказ автоматически уходит в
     await page.getByLabel("Email").fill("e2e-ozon@example.test");
     await page.getByLabel("Тип доставки").selectOption("ozon_pvz");
 
-    const pointSelect = page.getByLabel("Пункт выдачи Ozon *");
-    await expect(pointSelect).toBeEnabled({ timeout: 30_000 });
-    await expect(pointSelect.locator("option")).not.toHaveCount(1, { timeout: 30_000 });
-    await pointSelect.selectOption({ index: 1 });
+    await chooseFirstOzonPoint(page);
     await expect(page.getByText(/Доставка: \d+(?:[.,]\d+)? ₽/)).toBeVisible({ timeout: 30_000 });
 
     const paymentPageRequestPromise = page.waitForRequest((request) =>

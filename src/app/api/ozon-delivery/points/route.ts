@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isOzonDeliveryConfigured } from "@/lib/ozon-delivery/config";
 import { getOzonDeliveryClient, OzonDeliveryError } from "@/lib/ozon-delivery/client";
+import { extractOzonPointCity } from "@/lib/ozon-delivery/point-city";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,10 @@ export async function GET(request: NextRequest) {
         id: point.delivery_point_id,
         name: point.name,
         address: point.full_address,
+        city: extractOzonPointCity(point.full_address),
         type: point.type,
+        latitude: point.coordinates?.latitude ?? null,
+        longitude: point.coordinates?.longitude ?? null,
         shipmentMethodIds: methods.get(point.delivery_point_id),
       }));
     return NextResponse.json({ points, nextCursor: page.nextCursor, available: points.length > 0 }, {

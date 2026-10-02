@@ -22,7 +22,10 @@ type OzonPoint = {
   id: number;
   name: string;
   address: string;
+  city: string;
   type: string;
+  latitude: number | null;
+  longitude: number | null;
   shipmentMethodIds: number[];
 };
 
@@ -60,12 +63,20 @@ const OrderPage = () => {
   const [ozonNextCursor, setOzonNextCursor] = useState<string | null>(null);
   const [ozonPointsLoading, setOzonPointsLoading] = useState(false);
   const [ozonPointsError, setOzonPointsError] = useState("");
+  const [ozonCity, setOzonCity] = useState("");
+  const [geolocationState, setGeolocationState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [geolocationMessage, setGeolocationMessage] = useState("");
   const [ozonQuote, setOzonQuote] = useState<OzonQuote | null>(null);
   const [ozonQuoteLoading, setOzonQuoteLoading] = useState(false);
   const ozonIneligibleItems = items.filter(
     (item) => !isOzonDeliveryProductEligible(item.product.price.current),
   );
   const canUseOzonDelivery = ozonIneligibleItems.length === 0;
+  const ozonCities = Array.from(new Set(ozonPoints.map((point) => point.city)))
+    .sort((first, second) => first.localeCompare(second, "ru"));
+  const cityOzonPoints = ozonCity
+    ? ozonPoints.filter((point) => point.city === ozonCity)
+    : [];
 
   useEffect(() => {
     if (!canUseOzonDelivery && formData.deliveryType === "ozon_pvz") {
@@ -76,6 +87,7 @@ const OrderPage = () => {
         ozonShipmentMethodId: 0,
       }));
       setOzonQuote(null);
+      setOzonCity("");
     }
   }, [canUseOzonDelivery, formData.deliveryType]);
 
@@ -133,6 +145,64 @@ const OrderPage = () => {
       setOzonPointsLoading(false);
     }
   }, []);
+
+  const selectOzonPoint = (point: OzonPoint) => {
+    setFormData((current) => ({
+      ...current,
+      ozonDeliveryPointId: point.id,
+      ozonShipmentMethodId: point.shipmentMethodIds[0] ?? 0,
+    }));
+  };
+
+  const selectOzonCity = (city: string) => {
+    setOzonCity(city);
+    setFormData((current) => ({
+      ...current,
+      ozonDeliveryPointId: 0,
+      ozonShipmentMethodId: 0,
+    }));
+    setOzonQuote(null);
+  };
+
+  const requestGeolocation = () => {
+    if (!("geolocation" in navigator)) {
+      setGeolocationState("error");
+      setGeolocationMessage("Ваш браузер не поддерживает геолокацию. Выберите город вручную.");
+      return;
+    }
+    const pointsWithCoordinates = ozonPoints.filter(
+      (point) => typeof point.latitude === "number" && typeof point.longitude === "number",
+    );
+    if (!pointsWithCoordinates.length) {
+      setGeolocationState("error");
+      setGeolocationMessage("Координаты ПВЗ пока недоступны. Выберите город вручную.");
+      return;
+    }
+    setGeolocationState("loading");
+    setGeolocationMessage("");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const latitudeRadians = coords.latitude * Math.PI / 180;
+        const nearestPoint = pointsWithCoordinates.reduce((nearest, point) => {
+          const pointLatitude = point.latitude! * Math.PI / 180;
+          const latitudeDelta = pointLatitude - latitudeRadians;
+          const longitudeDelta = (point.longitude! - coords.longitude) * Math.PI / 180;
+          const distance = latitudeDelta ** 2 + (Math.cos((pointLatitude + latitudeRadians) / 2) * longitudeDelta) ** 2;
+          return distance < nearest.distance ? { point, distance } : nearest;
+        }, { point: pointsWithCoordinates[0], distance: Number.POSITIVE_INFINITY }).point;
+        selectOzonCity(nearestPoint.city);
+        setGeolocationState("success");
+        setGeolocationMessage(`Определили город: ${nearestPoint.city}`);
+      },
+      (geolocationError) => {
+        setGeolocationState("error");
+        setGeolocationMessage(geolocationError.code === geolocationError.PERMISSION_DENIED
+          ? "Доступ к геолокации отключён. Разрешите его в настройках браузера или выберите город вручную."
+          : "Не удалось определить местоположение. Выберите город вручную.");
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
+    );
+  };
 
   useEffect(() => {
     if (formData.deliveryType === "ozon_pvz" && !ozonPoints.length && !ozonPointsLoading && !ozonPointsError) {
@@ -228,6 +298,12 @@ const OrderPage = () => {
         // Для доставки Ozon доступна только онлайн-оплата.
         paymentType: nextDelivery === "pickup" ? prev.paymentType : "online",
       }));
+      if (nextDelivery === "pickup") {
+        setOzonCity("");
+        setGeolocationState("idle");
+        setGeolocationMessage("");
+        setOzonQuote(null);
+      }
       return;
     }
 
@@ -447,30 +523,76 @@ const OrderPage = () => {
                 </div>
 
                 {formData.deliveryType === "ozon_pvz" && (
-                  <div className="space-y-3">
-                    <label htmlFor="ozonDeliveryPointId" className="block text-sm font-medium text-gray-700">
-                      Пункт выдачи Ozon *
-                    </label>
-                    <select
-                      id="ozonDeliveryPointId"
-                      value={formData.ozonDeliveryPointId || ""}
-                      onChange={(event) => {
-                        const point = ozonPoints.find((candidate) => candidate.id === Number(event.target.value));
-                        setFormData((current) => ({
-                          ...current,
-                          ozonDeliveryPointId: point?.id ?? 0,
-                          ozonShipmentMethodId: point?.shipmentMethodIds[0] ?? 0,
-                        }));
-                      }}
-                      required
-                      disabled={ozonPointsLoading || !ozonPoints.length}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Выберите ПВЗ Ozon</option>
-                      {ozonPoints.map((point) => (
-                        <option key={point.id} value={point.id}>{point.name} — {point.address}</option>
-                      ))}
-                    </select>
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                      <p className="text-sm font-medium text-gray-900">Разрешите геолокацию</p>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Так мы определим ваш город и покажем ближайшие пункты выдачи. Город также можно выбрать вручную.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={requestGeolocation}
+                        disabled={ozonPointsLoading || !ozonPoints.length || geolocationState === "loading"}
+                        className="mt-3 rounded-lg border border-gray-400 bg-white px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {geolocationState === "loading" ? "Определяем…" : "Определить мой город"}
+                      </button>
+                      {geolocationMessage && (
+                        <p className={`mt-2 text-sm ${geolocationState === "success" ? "text-green-700" : "text-amber-700"}`}>
+                          {geolocationMessage}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="ozonCity" className="block text-sm font-medium text-gray-700 mb-2">
+                        Город *
+                      </label>
+                      <select
+                        id="ozonCity"
+                        value={ozonCity}
+                        onChange={(event) => selectOzonCity(event.target.value)}
+                        disabled={ozonPointsLoading || !ozonCities.length}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Выберите город</option>
+                        {ozonCities.map((city) => <option key={city} value={city}>{city}</option>)}
+                      </select>
+                    </div>
+
+                    {ozonCity && (
+                      <fieldset className="space-y-2">
+                        <legend className="block text-sm font-medium text-gray-700 mb-2">
+                          Пункты выдачи Ozon *
+                        </legend>
+                        <div className="max-h-80 space-y-2 overflow-y-auto pr-1" data-testid="ozon-points-list">
+                          {cityOzonPoints.map((point) => (
+                            <label
+                              key={point.id}
+                              className={`flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors ${
+                                formData.ozonDeliveryPointId === point.id
+                                  ? "border-primary bg-blue-50"
+                                  : "border-gray-200 hover:border-gray-400"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="ozonDeliveryPointId"
+                                value={point.id}
+                                checked={formData.ozonDeliveryPointId === point.id}
+                                onChange={() => selectOzonPoint(point)}
+                                required
+                                className="mt-1"
+                              />
+                              <span>
+                                <span className="block text-sm font-medium text-gray-900">{point.name}</span>
+                                <span className="block text-sm text-gray-600">{point.address}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    )}
                     {ozonPointsLoading && <p className="text-sm text-gray-500">Загрузка пунктов Ozon…</p>}
                     {ozonNextCursor && (
                       <button type="button" disabled={ozonPointsLoading}

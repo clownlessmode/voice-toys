@@ -42,12 +42,14 @@ describe("public Ozon Delivery routes", () => {
     });
     mocks.info.mockResolvedValueOnce([{
       delivery_point_id: 7, name: "Ozon", full_address: "Address", type: "PVZ", is_active: true,
+      coordinates: { latitude: 55.75, longitude: 37.61 },
       restrictions: { private: "not returned" },
     }]);
     const response = await points(new NextRequest("http://localhost/api/ozon-delivery/points"));
     expect(await response.json()).toEqual({
       available: true, nextCursor: "next",
-      points: [{ id: 7, name: "Ozon", address: "Address", type: "PVZ", shipmentMethodIds: [42] }],
+      points: [{ id: 7, name: "Ozon", address: "Address", city: "Address", type: "PVZ",
+        latitude: 55.75, longitude: 37.61, shipmentMethodIds: [42] }],
     });
   });
 
