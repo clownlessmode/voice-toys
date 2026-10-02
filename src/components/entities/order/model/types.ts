@@ -26,6 +26,14 @@ export interface Order {
   customerEmail?: string;
   deliveryType: string;
   deliveryAddress?: string;
+  deliveryCost?: number;
+  ozonDeliveryPointId?: string;
+  ozonShipmentMethodId?: string;
+  ozonOrderNumber?: string;
+  ozonPostingNumber?: string;
+  ozonDeliveryStatus?: string;
+  ozonDeliveryError?: string;
+  ozonDeliveryCreatedAt?: string;
   totalAmount: number;
   originalAmount?: number;
   discountAmount?: number;
@@ -41,7 +49,7 @@ export interface CreateOrderRequest {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
-  deliveryType: "pickup" | "delivery";
+  deliveryType: "pickup" | "ozon_pvz";
   deliveryAddress?: string;
   originalAmount?: number;
   discountAmount?: number;

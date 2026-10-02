@@ -1,8 +1,7 @@
 import { Product } from "@/components/entities/product";
-import {
-  DEFAULT_PRODUCT_WEIGHT_GRAMS,
-  DEFAULT_PRODUCT_DIMENSIONS_CM,
-} from "./cdek-constants";
+
+const DEFAULT_PRODUCT_WEIGHT_GRAMS = 500;
+const DEFAULT_PRODUCT_DIMENSIONS_CM = 35;
 
 export function transformProductFromDB(dbProduct: any): Product {
   return {

@@ -3,7 +3,6 @@ import { WbSyncMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   shouldStopWbCardPagination,
-  type OzonCatalogSyncItem,
   WbClient,
   type WbCardsPageResult,
 } from "@/lib/wb/client";
@@ -59,8 +58,8 @@ export const SYNC_RESULT_MAX_NM_IDS = 200;
 
 /**
  * We persist the WB pagination cursor to `WbSyncState` only after a page is fully
- * committed without errors. If any card in the page errors, we do not advance
- * the cursor: the same page will be retried on the next run, avoiding a gap
+ * committed without catalog/price errors. If any card in the page errors, we do
+ * not advance the cursor: the same page will be retried on the next run, avoiding a gap
  * that would leave some updates never applied. (Idempotent `wbNmId` upserts
  * make re-processing safe.)
  */
@@ -80,12 +79,6 @@ export type SyncResult = {
    * no parseable nmIDs on cards, or similar).
    */
   reconcileSkippedReason?: string;
-  ozonCatalogSync?: {
-    enabled: boolean;
-    synced: number;
-    skipped: number;
-    error?: string;
-  };
 };
 
 export type RunWbProductSyncOptions = {
@@ -96,12 +89,10 @@ export type RunWbProductSyncOptions = {
    * Production callers use env-based token in the client.
    */
   client?: Pick<WbClient, "fetchCardsPage"> & {
-    /** Если не передан мок-тестами, цены только из карточки Content (часто 1 ₽). */
+    /** Test overrides may omit this when fixture cards already include prices. */
     fetchGoodsPricesByNmList?: WbClient["fetchGoodsPricesByNmList"];
     /** Остатки по chrtId (суммарно по складам). */
     fetchStocksByChrtIds?: WbClient["fetchStocksByChrtIds"];
-    /** Загрузка/обновление карточек в Ozon каталоге. */
-    syncProductsToOzonCatalog?: WbClient["syncProductsToOzonCatalog"];
   };
   db?: PrismaClient;
   /**
@@ -207,6 +198,14 @@ type MutableCounts = {
   errorSamples: { nmId: number | null; message: string }[] | undefined;
 };
 
+function recordSyncError(counts: MutableCounts, message: string, nmId: number | null = null): void {
+  counts.errors += 1;
+  counts.errorSamples ??= [];
+  if (counts.errorSamples.length < SYNC_RESULT_MAX_NM_IDS) {
+    counts.errorSamples.push({ nmId, message });
+  }
+}
+
 function logPageSummary(
   mode: "incremental" | "full",
   pageIndex: number,
@@ -262,60 +261,18 @@ function cardHasName(card: unknown): boolean {
   return title.length > 0 || name.length > 0;
 }
 
-async function deleteWbProductByNmId(
+async function deactivateWbProductByNmId(
   db: PrismaClient,
   nmId: number | null | undefined
-): Promise<void> {
-  if (nmId == null || !Number.isInteger(nmId) || nmId <= 0) {
-    return;
-  }
-  await db.product.deleteMany({
-    where: { wbNmId: nmId },
-  });
-}
-
-function hasUsableImageFromStoredJson(imagesJson: string): boolean {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(imagesJson);
-  } catch {
-    return false;
-  }
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    return false;
-  }
-  for (const v of parsed) {
-    if (typeof v !== "string") continue;
-    const url = v.trim();
-    if (!url) continue;
-    if (url.startsWith("data:image/svg+xml;utf8,")) continue;
-    return true;
-  }
-  return false;
-}
-
-async function purgeInvalidWbProductsFromDb(
-  db: PrismaClient
 ): Promise<number> {
-  const rows = await db.product.findMany({
-    where: { wbNmId: { not: null } },
-    select: { id: true, name: true, images: true },
-  });
-  const invalidIds: string[] = [];
-  for (const row of rows) {
-    const hasName = row.name.trim().length > 0;
-    const hasPhoto = hasUsableImageFromStoredJson(row.images);
-    if (!hasName || !hasPhoto) {
-      invalidIds.push(row.id);
-    }
-  }
-  if (invalidIds.length === 0) {
+  if (nmId == null || !Number.isInteger(nmId) || nmId <= 0) {
     return 0;
   }
-  const r = await db.product.deleteMany({
-    where: { id: { in: invalidIds } },
+  const result = await db.product.updateMany({
+    where: { wbNmId: nmId, isActive: true },
+    data: { isActive: false },
   });
-  return r.count;
+  return result.count;
 }
 
 async function persistCursor(
@@ -383,6 +340,9 @@ async function upsertOneCard(
       id: true,
       wbCardUpdatedAt: true,
       isActive: true,
+      price: true,
+      oldPrice: true,
+      discountPercent: true,
       breadcrumbs: true,
       pickupAvailability: true,
       deliveryAvailability: true,
@@ -391,9 +351,37 @@ async function upsertOneCard(
     },
   });
 
+  // Content responses normally have no price. Never replace a known price with
+  // the mapper's placeholder, or publish a new product using that placeholder.
+  if (mapped.createRequest.price <= 1) {
+    if (!existing || existing.price <= 1) {
+      throw new Error(`No trustworthy price for WB product ${mapped.wbNmId}`);
+    }
+    mapped.prismaCreate.price = existing.price;
+    mapped.prismaCreate.oldPrice = existing.oldPrice;
+    mapped.prismaCreate.discountPercent = existing.discountPercent;
+  }
+  if (existing && stockAmount == null) {
+    mapped.prismaCreate.pickupAvailability = existing.pickupAvailability;
+    mapped.prismaCreate.deliveryAvailability = existing.deliveryAvailability;
+  }
+
   if (existing) {
     if (isMappedUnchanged(existing, mapped)) {
-      counts.unchanged += 1;
+      const marketData = {
+        price: mapped.prismaCreate.price,
+        oldPrice: mapped.prismaCreate.oldPrice ?? null,
+        discountPercent: mapped.prismaCreate.discountPercent ?? null,
+        pickupAvailability: mapped.prismaCreate.pickupAvailability,
+        deliveryAvailability: mapped.prismaCreate.deliveryAvailability,
+      };
+      if (Object.entries(marketData).some(([key, value]) => existing[key as keyof typeof existing] !== value)) {
+        await db.product.update({ where: { id: existing.id }, data: marketData });
+        counts.updated += 1;
+        counts.updatedNmIds = pushCapped(counts.updatedNmIds, mapped.wbNmId, cap);
+      } else {
+        counts.unchanged += 1;
+      }
       return mapped;
     }
 
@@ -432,24 +420,6 @@ async function upsertOneCard(
   return mapped;
 }
 
-function toOzonCatalogSyncItem(mapped: WbProductMapped): OzonCatalogSyncItem {
-  const imageList = mapped.createRequest.images.filter((img) => {
-    const t = img.trim();
-    return t.length > 0 && !t.startsWith("data:image/svg+xml;utf8,");
-  });
-  return {
-    offerId: `wb-${String(mapped.wbNmId)}`,
-    name: mapped.createRequest.name,
-    description: mapped.createRequest.description,
-    priceRub: Math.max(1, Math.round(mapped.createRequest.price)),
-    oldPriceRub:
-      mapped.createRequest.oldPrice != null
-        ? Math.max(1, Math.round(mapped.createRequest.oldPrice))
-        : null,
-    images: imageList,
-  };
-}
-
 /**
  * `wbNmId` not null, not in `seen` → `isActive: false` in batches.
  * Does not change rows with `wbNmId == null` (manual catalog).
@@ -459,7 +429,7 @@ export async function deactivateWbProductsNotInSet(
   seen: Set<number>
 ): Promise<{ count: number; ids: string[]; nmIds: number[] }> {
   const withWb = await db.product.findMany({
-    where: { wbNmId: { not: null } },
+    where: { wbNmId: { not: null }, isActive: true },
     select: { id: true, wbNmId: true },
   });
   const toOff = withWb.filter(
@@ -506,7 +476,8 @@ export async function runWbProductSync(
   const seenNmIds: Set<number> | null = mode === "full" ? new Set() : null;
   let totalCardsFromApi = 0;
   const cachedPriceByNm = new Map<number, WbSizePriceInfo>();
-  const ozonSyncItemsByNm = new Map<number, OzonCatalogSyncItem>();
+  const processedNmIds = new Set<number>();
+  let invalidDeactivated = 0;
 
   const counts: MutableCounts = {
     added: 0,
@@ -576,11 +547,14 @@ export async function runWbProductSync(
       totalCardsFromApi += page.cards.length;
 
       const validCards: unknown[] = [];
+      let pageErrors = 0;
       for (const card of page.cards) {
+        const nmId = rawNmIdFromCard(card);
+        if (nmId != null) processedNmIds.add(nmId);
         const hasPhoto = cardHasPhoto(card);
         const hasName = cardHasName(card);
         if (!hasPhoto || !hasName) {
-          await deleteWbProductByNmId(db, rawNmIdFromCard(card));
+          invalidDeactivated += await deactivateWbProductByNmId(db, rawNmIdFromCard(card));
           continue;
         }
         validCards.push(card);
@@ -601,6 +575,8 @@ export async function runWbProductSync(
           } catch (e) {
             skipPricesForRun = true;
             const msg = e instanceof Error ? e.message : String(e);
+            pageErrors += 1;
+            recordSyncError(counts, `Price refresh failed: ${msg}`);
             logWbSyncError({
               event: "wb_sync_prices_fetch_failed",
               message: msg,
@@ -624,6 +600,7 @@ export async function runWbProductSync(
           } catch (e) {
             skipStocksForRun = true;
             const msg = e instanceof Error ? e.message : String(e);
+            recordSyncError(counts, `Stock refresh failed: ${msg}`);
             logWbSyncError({
               event: "wb_sync_stocks_fetch_failed",
               message: msg,
@@ -634,7 +611,6 @@ export async function runWbProductSync(
 
       const priceByNm = cachedPriceByNm;
 
-      let pageErrors = 0;
       for (const card of validCards) {
         throwIfAborted();
         if (mode === "full" && seenNmIds) {
@@ -642,19 +618,36 @@ export async function runWbProductSync(
           if (rawNm != null) seenNmIds.add(rawNm);
         }
         try {
-          const beforeErr = counts.errors;
           const nm = rawNmIdFromCard(card);
           const dp =
             nm != null ? priceByNm.get(nm) : undefined;
+          if (
+            !skipPricesForRun &&
+            typeof client.fetchGoodsPricesByNmList === "function" &&
+            (!dp || dp.currentRub <= 1)
+          ) {
+            recordSyncError(counts, "No trustworthy price returned by the prices API", nm);
+            pageErrors += 1;
+          }
           const chrtIds = rawChrtIdsFromCard(card);
           const stockAmount =
-            chrtIds.length > 0
+            chrtIds.length > 0 && chrtIds.every((id) => cachedStockByChrt.has(id))
               ? chrtIds.reduce(
                   (sum, chrtId) => sum + (cachedStockByChrt.get(chrtId) ?? 0),
                   0
                 )
               : undefined;
-          const mapped = await upsertOneCard(
+          if (
+            !skipStocksForRun &&
+            typeof client.fetchStocksByChrtIds === "function" &&
+            chrtIds.length > 0 && stockAmount == null
+          ) {
+            recordSyncError(counts, "No complete stock data returned by the stocks API", nm);
+          }
+          // Unknown seller stock must not prevent later cards being imported;
+          // it can legitimately be absent for products fulfilled elsewhere.
+          const beforeErr = counts.errors;
+          await upsertOneCard(
             db,
             card,
             cap,
@@ -662,9 +655,6 @@ export async function runWbProductSync(
             dp,
             stockAmount
           );
-          if (mapped) {
-            ozonSyncItemsByNm.set(mapped.wbNmId, toOzonCatalogSyncItem(mapped));
-          }
           if (counts.errors > beforeErr) pageErrors += 1;
         } catch (e) {
           pageErrors += 1;
@@ -683,6 +673,16 @@ export async function runWbProductSync(
             counts.errorSamples.push({ nmId: nm, message: msg });
           }
         }
+      }
+
+      if (
+        !stop &&
+        (!page.nextCursor ||
+          (page.nextCursor.nmID === cursorForRequest?.nmID &&
+            page.nextCursor.updatedAt === cursorForRequest?.updatedAt))
+      ) {
+        recordSyncError(counts, "Incomplete catalog: missing or repeated pagination cursor");
+        pageErrors += 1;
       }
 
       // Partial page failure: do not advance the incremental cursor to avoid
@@ -726,11 +726,44 @@ export async function runWbProductSync(
     throw e;
   }
 
-  let deactivated = 0;
+  // Prices change independently of Content.updatedAt. Refresh active products
+  // omitted by the incremental cards cursor using their persisted WB IDs.
+  if (mode === "incremental" && !skipPricesForRun && typeof client.fetchGoodsPricesByNmList === "function") {
+    const products = await db.product.findMany({
+      where: { wbNmId: { not: null }, isActive: true },
+      select: { id: true, wbNmId: true, price: true, oldPrice: true, discountPercent: true },
+    });
+    const untouched = products.filter((product) => product.wbNmId != null && !processedNmIds.has(product.wbNmId));
+    if (untouched.length > 0) {
+      try {
+        throwIfAborted();
+        const prices = await client.fetchGoodsPricesByNmList(untouched.map((product) => product.wbNmId!));
+        for (const product of untouched) {
+          const price = prices.get(product.wbNmId!);
+          if (!price || !Number.isFinite(price.currentRub) || price.currentRub <= 1) {
+            recordSyncError(counts, "No trustworthy price returned by the prices API", product.wbNmId);
+            continue;
+          }
+          if (product.price !== price.currentRub || product.oldPrice !== price.oldRub || product.discountPercent !== price.discountPercent) {
+            await db.product.update({
+              where: { id: product.id },
+              data: { price: price.currentRub, oldPrice: price.oldRub, discountPercent: price.discountPercent },
+            });
+            counts.updated += 1;
+            counts.updatedNmIds = pushCapped(counts.updatedNmIds, product.wbNmId!, cap);
+          }
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") throw e;
+        const message = e instanceof Error ? e.message : String(e);
+        recordSyncError(counts, `Price refresh failed: ${message}`);
+      }
+    }
+  }
+
+  let deactivated = invalidDeactivated;
   let deactivatedNmIds: number[] | undefined;
   let reconcileSkippedReason: string | undefined;
-  let purgedInvalid = 0;
-  let ozonCatalogSync: SyncResult["ozonCatalogSync"];
 
   // Full reconciliation: only if every fetched page was fully committed without
   // card errors; otherwise the collected nm set may be unsafe for deactivations.
@@ -746,45 +779,26 @@ export async function runWbProductSync(
           : "Full reconcile skipped: no nmID values on API cards; refusing mass deactivation.";
     } else {
       const de = await deactivateWbProductsNotInSet(db, seenNmIds);
-      deactivated = de.count;
+      deactivated += de.count;
       if (de.nmIds.length > 0) {
         deactivatedNmIds = de.nmIds.slice(0, SYNC_RESULT_MAX_NM_IDS);
       }
     }
   }
 
-  if (!pageErrorAbort) {
+  if (counts.errors === 0) {
     await db.wbSyncState
       .update({
         where: { key: stateKey },
         data: { lastSuccessAt: new Date(), lastError: null },
       })
       .catch(() => undefined);
+  } else {
+    await db.wbSyncState.update({
+      where: { key: stateKey },
+      data: { lastError: lastError ?? counts.errorSamples?.[0]?.message ?? "Market data refresh failed" },
+    });
   }
-  if (
-    typeof client.syncProductsToOzonCatalog === "function" &&
-    ozonSyncItemsByNm.size > 0
-  ) {
-    try {
-      ozonCatalogSync = await client.syncProductsToOzonCatalog([
-        ...ozonSyncItemsByNm.values(),
-      ]);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      ozonCatalogSync = {
-        enabled: true,
-        synced: 0,
-        skipped: ozonSyncItemsByNm.size,
-        error: msg,
-      };
-      logWbSyncError({
-        event: "ozon_catalog_sync_failed",
-        message: msg,
-      });
-    }
-  }
-  purgedInvalid = await purgeInvalidWbProductsFromDb(db);
-
   const durationMs = Date.now() - t0;
   logWbSyncInfoSummary({
     mode,
@@ -793,11 +807,9 @@ export async function runWbProductSync(
     unchanged: counts.unchanged,
     errors: counts.errors,
     deactivated,
-    purgedInvalid,
     durationMs,
     pageErrorAbort,
     reconcileSkippedReason,
-    ozonCatalogSync,
   });
 
   return {
@@ -812,6 +824,5 @@ export async function runWbProductSync(
     deactivatedNmIds,
     errorSamples: counts.errorSamples,
     reconcileSkippedReason,
-    ozonCatalogSync,
   };
 }

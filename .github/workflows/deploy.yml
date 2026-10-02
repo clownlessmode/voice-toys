@@ -12,6 +12,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      OZON_DELIVERY_CLIENT_ID: ${{ secrets.OZON_DELIVERY_CLIENT_ID }}
+      OZON_DELIVERY_CLIENT_SECRET: ${{ secrets.OZON_DELIVERY_CLIENT_SECRET }}
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -20,6 +23,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          envs: OZON_DELIVERY_CLIENT_ID,OZON_DELIVERY_CLIENT_SECRET
           script_stop: true
           command_timeout: 15m
           script: |
@@ -27,6 +31,23 @@ jobs:
             export PATH="/root/.bun/bin:/usr/local/bin:$PATH"
 
             cd /var/www/voice-toys
+
+            update_env_file() {
+              env_key="$1"
+              env_value="$2"
+              env_tmp_file="$(mktemp .env.local.XXXXXX)"
+              if [ -f .env.local ]; then
+                grep -v "^${env_key}=" .env.local > "$env_tmp_file" || true
+              fi
+              printf '%s=%s\n' "$env_key" "$env_value" >> "$env_tmp_file"
+              chmod 600 "$env_tmp_file"
+              mv "$env_tmp_file" .env.local
+            }
+
+            test -n "$OZON_DELIVERY_CLIENT_ID"
+            test -n "$OZON_DELIVERY_CLIENT_SECRET"
+            update_env_file OZON_DELIVERY_CLIENT_ID "$OZON_DELIVERY_CLIENT_ID"
+            update_env_file OZON_DELIVERY_CLIENT_SECRET "$OZON_DELIVERY_CLIENT_SECRET"
 
             git fetch origin main
             git reset --hard origin/main

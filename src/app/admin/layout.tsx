@@ -48,12 +48,12 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+      <div className="relative w-full bg-white shadow-lg md:fixed md:inset-y-0 md:left-0 md:z-50 md:w-64">
         <div className="flex h-16 items-center px-6 border-b">
           <h1 className="text-xl font-bold text-gray-900">Voice Toys Admin</h1>
         </div>
-        <nav className="mt-6 px-3">
-          <ul className="space-y-1">
+        <nav className="px-3 py-3 md:mt-6 md:py-0">
+          <ul className="grid grid-cols-2 gap-1 md:block md:space-y-1">
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -69,7 +69,7 @@ export default function AdminLayout({
                   >
                     <item.icon
                       className={cn(
-                        "mr-3 h-5 w-5 transition-colors",
+                        "mr-3 h-5 w-5 shrink-0 transition-colors",
                         isActive
                           ? "text-white"
                           : "text-gray-400 group-hover:text-gray-500"
@@ -85,7 +85,7 @@ export default function AdminLayout({
       </div>
 
       {/* Main content */}
-      <div className="pl-64">
+      <div className="md:pl-64">
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {children}

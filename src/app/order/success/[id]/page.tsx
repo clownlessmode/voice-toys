@@ -7,64 +7,57 @@ import Footer from "@/components/widgets/Footer";
 import Header from "@/components/widgets/Header";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Success() {
   const params = useParams();
-  const searchParams = useSearchParams();
+  const orderId = typeof params.id === "string" ? params.id : "";
   const [paymentStatus, setPaymentStatus] = useState<
-    "processing" | "success" | "error" | "cash_on_delivery"
+    "processing" | "pending" | "success" | "error" | "cash_on_delivery"
   >("processing");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const processPayment = async () => {
-      const orderId = params.id as string;
-      const transactionId = searchParams.get("transaction_id");
-
-      console.log("🎯 Processing payment success:", { orderId, transactionId });
-
-      // Если нет transaction_id, это заказ с оплатой при получении
-      if (!transactionId) {
-        console.log("💰 Cash on delivery order - no payment processing needed");
-        setPaymentStatus("cash_on_delivery");
-        return;
-      }
-
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    let attempts = 0;
+    const readPaymentStatus = async () => {
       try {
-        // Отправляем запрос для подтверждения оплаты
-        const response = await fetch(`/api/orders/${orderId}/pay`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            transaction_id: transactionId,
-            state: "COMPLETE",
-            source: "success_page",
-          }),
+        const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/payment-status`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
         });
-
+        if (!response.ok) throw new Error("Не удалось получить статус заказа. Попробуйте обновить страницу.");
         const data = await response.json();
-
-        if (response.ok && data.success) {
-          console.log("✅ Payment confirmed successfully");
-          setPaymentStatus("success");
-        } else {
-          console.error("❌ Payment confirmation failed:", data);
+        if (controller.signal.aborted) return;
+        if (data.status === "CANCELLED") {
           setPaymentStatus("error");
-          setErrorMessage(data.error || "Ошибка подтверждения оплаты");
+          setErrorMessage("Заказ отменён. Если деньги были списаны, свяжитесь с нами.");
+        } else if (["PAID", "SHIPPED", "DELIVERED"].includes(data.status)) {
+          setPaymentStatus("success");
+        } else if (data.status === "CREATED" && data.paymentType === "cash_on_delivery") {
+          setPaymentStatus("cash_on_delivery");
+        } else if (data.status === "CREATED" && data.paymentType === "online") {
+          attempts += 1;
+          if (attempts < 30) timer = setTimeout(readPaymentStatus, 2000);
+          else setPaymentStatus("pending");
+        } else {
+          throw new Error("Статус заказа пока недоступен. Попробуйте обновить страницу.");
         }
       } catch (error) {
-        console.error("❌ Error confirming payment:", error);
+        if (controller.signal.aborted) return;
         setPaymentStatus("error");
-        setErrorMessage("Ошибка сети при подтверждении оплаты");
+        setErrorMessage(error instanceof Error ? error.message : "Не удалось проверить оплату.");
       }
     };
-
-    processPayment();
-  }, [params.id, searchParams]);
+    void readPaymentStatus();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [orderId]);
   return (
     <main
       className={cn(
@@ -109,8 +102,18 @@ export default function Success() {
                 Ура! Ваш заказ оплачен
               </H1>
               <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
-                Платеж успешно обработан. Мы уже начали собирать игрушки. Скоро
-                вы получите SMS с информацией о доставке.
+                Платёж подтверждён. Информация о получении заказа поступит после
+                обработки заказа магазином.
+              </T1>
+            </>
+          )}
+
+          {paymentStatus === "pending" && (
+            <>
+              <H1 className="text-center lg:text-left">Ожидаем подтверждение оплаты</H1>
+              <T1 className="text-center lg:text-left">
+                Подтверждение от банка ещё не поступило. Обновите страницу позже.
+                Если деньги списаны, повторно оплачивать заказ не нужно.
               </T1>
             </>
           )}
@@ -132,8 +135,7 @@ export default function Success() {
               </H1>
               <T1 className="text-center lg:text-left sm:px-[10px] max-w-[500px] sm:max-w-[605px] xl:max-w-[850px]">
                 Ваш заказ принят в обработку. Оплата производится при получении.
-                Мы уже начали собирать игрушки. Скоро вы получите SMS с
-                информацией о доставке.
+                Информация о получении поступит после обработки заказа магазином.
               </T1>
             </>
           )}

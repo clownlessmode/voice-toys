@@ -32,6 +32,7 @@ import { useFavorites } from "@/store/favoritesStore"; // Импортируем
 import ProductSlider from "@/components/ui/components/product-slider";
 import { X } from "lucide-react";
 import { getPrimaryProductImageSrc } from "@/lib/product-utils";
+import { isOzonDeliveryProductEligible } from "@/lib/ozon-delivery/rules";
 
 const faq = [
   {
@@ -628,7 +629,9 @@ const Page = () => {
                       </Navigation>
                     </motion.button>
                     <T2>{product.availability.pickup}</T2>
-                    <T2>{product.availability.delivery}</T2>
+                    <T2>{isOzonDeliveryProductEligible(product.price.current)
+                      ? product.availability.delivery
+                      : "Ozon Доставка недоступна — только самовывоз"}</T2>
                   </motion.div>
 
                   {/* Кнопки действий */}
@@ -888,7 +891,9 @@ const Page = () => {
                       </Navigation>
                     </motion.button>
                     <T2>{product.availability.pickup}</T2>
-                    <T2>{product.availability.delivery}</T2>
+                    <T2>{isOzonDeliveryProductEligible(product.price.current)
+                      ? product.availability.delivery
+                      : "Ozon Доставка недоступна — только самовывоз"}</T2>
                   </motion.div>
 
                   {/* Кнопка добавления в корзину с анимацией */}

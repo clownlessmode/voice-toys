@@ -12,7 +12,11 @@ export default defineConfig(({ mode }) => {
       include: ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
       exclude: ["node_modules", "dist", ".next"],
       globals: true,
-      env,
+      env: {
+        ...env,
+        // Allow CI and local safety runs to isolate Prisma from the developer database.
+        ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
+      },
     },
     resolve: {
       alias: {

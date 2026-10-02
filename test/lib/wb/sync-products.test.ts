@@ -337,6 +337,167 @@ describe("runWbProductSync", () => {
     const ghost = await prisma.product.findFirst({ where: { wbNmId: orphanNm } });
     expect(ghost?.isActive).toBe(true);
   }, 20_000);
+
+  it("refreshes prices and availability when the card timestamp is unchanged", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const page = pageFromCards([card], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true);
+    const client = {
+      fetchCardsPage: vi.fn().mockResolvedValue(page),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map([[cardNm, { currentRub: 1000, oldRub: null, discountPercent: null }]])),
+      fetchStocksByChrtIds: vi.fn().mockResolvedValue(new Map([[1001, 5]])),
+    };
+    await runWbProductSync({ mode: "full", client, db: prisma, reconcile: false });
+    client.fetchGoodsPricesByNmList.mockResolvedValue(new Map([[cardNm, { currentRub: 800, oldRub: 1000, discountPercent: 20 }]]));
+    client.fetchStocksByChrtIds.mockResolvedValue(new Map([[1001, 0]]));
+
+    await runWbProductSync({ mode: "full", client, db: prisma, reconcile: false });
+
+    const product = await prisma.product.findUniqueOrThrow({ where: { wbNmId: cardNm } });
+    expect(product.price).toBe(800);
+    expect(product.oldPrice).toBe(1000);
+    expect(product.pickupAvailability).toBe("Самовывоз недоступен");
+    expect(product.deliveryAvailability).toBe("Доставка недоступна");
+  });
+
+  it("retains known price and availability and reports errors when market data fails", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const cursor = { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm };
+    const client = {
+      fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([card], cursor, true)),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map([[cardNm, { currentRub: 1000, oldRub: null, discountPercent: null }]])),
+      fetchStocksByChrtIds: vi.fn().mockResolvedValue(new Map([[1001, 5]])),
+    };
+    await runWbProductSync({ mode: "incremental", client, db: prisma });
+    const next = { updatedAt: "2025-03-11T16:30:00.000Z", nmID: cardNm };
+    client.fetchCardsPage.mockResolvedValue(pageFromCards([{ ...card, updatedAt: next.updatedAt }], next, true));
+    client.fetchGoodsPricesByNmList.mockRejectedValue(new Error("prices unavailable"));
+    client.fetchStocksByChrtIds.mockRejectedValue(new Error("stocks unavailable"));
+
+    const result = await runWbProductSync({ mode: "incremental", client, db: prisma });
+
+    const product = await prisma.product.findUniqueOrThrow({ where: { wbNmId: cardNm } });
+    expect(product.price).toBe(1000);
+    expect(product.pickupAvailability).toBe("Самовывоз доступен");
+    expect(product.deliveryAvailability).toBe("Доставка доступна");
+    expect(result.errors).toBeGreaterThan(0);
+    const state = await prisma.wbSyncState.findUniqueOrThrow({ where: { key: WB_SYNC_STATE_KEY_INCREMENTAL } });
+    expect(state.cursorUpdatedAt).toBe(cursor.updatedAt);
+    expect(state.lastError).toBeTruthy();
+  });
+
+  it("does not publish a new card without a trustworthy price", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const result = await runWbProductSync({
+      mode: "full", db: prisma, reconcile: false,
+      client: {
+        fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([card], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+        fetchGoodsPricesByNmList: vi.fn().mockRejectedValue(new Error("prices unavailable")),
+      },
+    });
+    expect(await prisma.product.findUnique({ where: { wbNmId: cardNm } })).toBeNull();
+    expect(result.errors).toBeGreaterThan(0);
+  });
+
+  it("keeps incomplete products and their historical order items when hiding them", async () => {
+    const mapped = mapCard.mapWbCardToProductData(sampleCard)!;
+    const product = await prisma.product.create({ data: mapped.prismaCreate });
+    const order = await prisma.order.create({ data: {
+      orderNumber: "WB-AUDIT-HISTORY", customerName: "Test", customerPhone: "+79990000000",
+      deliveryType: "pickup", totalAmount: 1999,
+      items: { create: [{ productId: product.id, quantity: 1, price: 1999 }] },
+    } });
+    try {
+      await runWbProductSync({ mode: "full", db: prisma, client: {
+        fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([{ ...(sampleCard as object), title: "", photos: [] }], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+      } });
+      expect(await prisma.product.findUnique({ where: { id: product.id } })).toMatchObject({ isActive: false });
+      expect(await prisma.orderItem.count({ where: { orderId: order.id } })).toBe(1);
+    } finally {
+      await prisma.order.delete({ where: { id: order.id } });
+    }
+  });
+
+  it("never calls Ozon imports as a side effect of WB sync", async () => {
+    const publishToOzon = vi.fn().mockResolvedValue({ enabled: true, synced: 1, skipped: 0 });
+    const client = {
+      fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([sampleCard], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+      syncProductsToOzonCatalog: publishToOzon,
+    };
+    await runWbProductSync({ mode: "full", db: prisma, client, reconcile: false });
+    expect(publishToOzon).not.toHaveBeenCalled();
+  });
+
+  it("incremental: refreshes existing prices even when Content returns no updated cards", async () => {
+    const mapped = mapCard.mapWbCardToProductData(sampleCard)!;
+    await prisma.product.create({ data: mapped.prismaCreate });
+    const result = await runWbProductSync({ mode: "incremental", db: prisma, client: {
+      fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map([[cardNm, { currentRub: 1800, oldRub: 2000, discountPercent: 10 }]])),
+    } });
+    const product = await prisma.product.findUniqueOrThrow({ where: { wbNmId: cardNm } });
+    expect(product.price).toBe(1800);
+    expect(product.oldPrice).toBe(2000);
+    expect(product.discountPercent).toBe(10);
+    expect(result.updated).toBe(1);
+  });
+
+  it("reports missing price rows without resetting the last known price", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const mapped = mapCard.mapWbCardToProductData(sampleCard)!;
+    await prisma.product.create({ data: mapped.prismaCreate });
+    const result = await runWbProductSync({ mode: "full", db: prisma, reconcile: false, client: {
+      fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([card], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map()),
+    } });
+    expect((await prisma.product.findUniqueOrThrow({ where: { wbNmId: cardNm } })).price).toBe(1999);
+    expect(result.errors).toBeGreaterThan(0);
+    expect((await prisma.wbSyncState.findUniqueOrThrow({ where: { key: WB_SYNC_STATE_KEY_FULL } })).lastError).toBeTruthy();
+  });
+
+  it("reports missing stock rows as unknown and keeps the previous availability", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const mapped = mapCard.mapWbCardToProductData(sampleCard)!;
+    await prisma.product.create({ data: { ...mapped.prismaCreate, pickupAvailability: "Самовывоз доступен", deliveryAvailability: "Доставка доступна" } });
+    const result = await runWbProductSync({ mode: "full", db: prisma, reconcile: false, client: {
+      fetchCardsPage: vi.fn().mockResolvedValue(pageFromCards([card], { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm }, true)),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map([[cardNm, { currentRub: 1999, oldRub: null, discountPercent: null }]])),
+      fetchStocksByChrtIds: vi.fn().mockResolvedValue(new Map()),
+    } });
+    const product = await prisma.product.findUniqueOrThrow({ where: { wbNmId: cardNm } });
+    expect(product.pickupAvailability).toBe("Самовывоз доступен");
+    expect(product.deliveryAvailability).toBe("Доставка доступна");
+    expect(result.errors).toBeGreaterThan(0);
+  });
+
+  it("continues importing later card pages when seller stock data is unavailable", async () => {
+    const card = { ...(sampleCard as object), sizes: [{ chrtID: 1001 }] };
+    const second = { ...card, nmID: orphanNm };
+    const firstCursor = { updatedAt: "2025-03-10T16:30:00.000Z", nmID: cardNm };
+    const lastCursor = { updatedAt: "2025-03-11T16:30:00.000Z", nmID: orphanNm };
+    const result = await runWbProductSync({ mode: "full", db: prisma, reconcile: false, client: {
+      fetchCardsPage: vi.fn()
+        .mockResolvedValueOnce(pageFromCards([card], firstCursor, false))
+        .mockResolvedValueOnce(pageFromCards([second], lastCursor, true)),
+      fetchGoodsPricesByNmList: vi.fn().mockResolvedValue(new Map([
+        [cardNm, { currentRub: 1000, oldRub: null, discountPercent: null }],
+        [orphanNm, { currentRub: 1200, oldRub: null, discountPercent: null }],
+      ])),
+      fetchStocksByChrtIds: vi.fn().mockResolvedValue(new Map()),
+    } });
+    expect(result.added).toBe(2);
+    expect(result.errors).toBeGreaterThan(0);
+    expect((await prisma.product.findUniqueOrThrow({ where: { wbNmId: orphanNm } })).deliveryAvailability).toBe("Доставка: информация уточняется.");
+  });
+
+  it("does not reconcile a truncated full catalog with a missing continuation cursor", async () => {
+    const mapped = mapCard.mapWbCardToProductData(sampleCard)!;
+    await prisma.product.create({ data: { ...mapped.prismaCreate, wbNmId: orphanNm } });
+    const result = await runWbProductSync({ mode: "full", db: prisma, client: {
+      fetchCardsPage: vi.fn().mockResolvedValue({ status: 200, cards: Array.from({ length: 100 }, () => sampleCard), cursor: null, nextCursor: null, raw: {} }),
+    } });
+    expect((await prisma.product.findUniqueOrThrow({ where: { wbNmId: orphanNm } })).isActive).toBe(true);
+    expect(result.errors).toBeGreaterThan(0);
+  });
 });
 
 describe("deactivateWbProductsNotInSet", () => {

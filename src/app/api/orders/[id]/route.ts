@@ -7,7 +7,6 @@ import {
   OrderStatus,
 } from "@/components/entities/order/model/types";
 import { sendOrderNotification } from "@/lib/telegram";
-import { prepareCdekData, registerCdekOrder } from "./pay/route";
 
 // GET - Получение заказа по ID
 export async function GET(
@@ -120,34 +119,6 @@ export async function PATCH(
     if (body.status === "PAID" && existingOrder.status !== "PAID") {
       try {
         await sendOrderNotification(transformedOrder, "paid");
-        if (
-          (updatedOrder.deliveryType === "delivery" ||
-            updatedOrder.deliveryType === "cdek_office") &&
-          updatedOrder.deliveryAddress
-        ) {
-          console.log("🚚 Preparing CDEK order for delivery...");
-          const cdekData = await prepareCdekData(updatedOrder);
-          console.log(
-            "📦 CDEK data prepared:",
-            JSON.stringify(cdekData, null, 2)
-          );
-
-          const response = await registerCdekOrder(cdekData);
-          console.log("📋 CDEK order registration response:", response);
-
-          if (response.success) {
-            console.log(
-              "✅ CDEK order registered successfully:",
-              response.order
-            );
-          } else {
-            console.error("❌ Failed to register CDEK order:", response.error);
-          }
-        } else {
-          console.log(
-            "ℹ️ Skipping CDEK registration - not a delivery order or missing address"
-          );
-        }
       } catch (error) {
         console.error("Ошибка отправки уведомления в Telegram:", error);
         // Не блокируем обновление заказа из-за ошибки уведомления

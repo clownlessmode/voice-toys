@@ -3,7 +3,8 @@ import { Order } from "@/components/entities/order/model/types";
 import nodemailer from "nodemailer"; // если ругается — попробуй: import * as nodemailer from "nodemailer";
 const TELEGRAM_BOT_TOKEN = "7749626891:AAGwK5_ZSNoCy_H91prfz4BMVGwmByfv24k";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "@voice_toys_orders"; // Можно настроить через env
-const transporter = nodemailer.createTransport({
+const notificationsDisabled = process.env.DISABLE_ORDER_NOTIFICATIONS === "true";
+const transporter = notificationsDisabled ? null : nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "eclipselucky@gmail.com",
@@ -15,13 +16,14 @@ const transporter = nodemailer.createTransport({
 
 // Проверка подключения и авторизации (1 раз при старте)
 transporter
-  .verify()
+  ?.verify()
   .then(() => console.log("[MAIL] Transport ready (verify ok)"))
   .catch((err) =>
     console.error("[MAIL] Transport verify failed:", err?.message || err)
   );
 
 async function sendEmailToMe(subject: string, text: string): Promise<void> {
+  if (!transporter) return;
   const to = "clownessmode@bk.ru"; // оставляю как в твоём коде (если нужно на другой адрес — поменяй тут)
   const mailOptions = {
     from: "eclipselucky@gmail.com",
@@ -61,6 +63,7 @@ function escapeMarkdownV2(text: string): string {
 
 // Функция для отправки сообщения в Telegram
 async function sendTelegramMessage(message: string): Promise<boolean> {
+  if (notificationsDisabled) return true;
   try {
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,

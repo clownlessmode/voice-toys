@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/app/cart/use-cart";
 import Breadcrumbs from "@/components/ui/components/breadcrumbs";
@@ -13,9 +13,24 @@ import Footer from "@/components/widgets/Footer";
 import PromoCodeInput from "@/components/ui/components/PromoCodeInput";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { cities } from "./cities";
-import { useCdekOffices } from "./use-cdek-offices";
-import { SearchableCitySelect } from "./search-select";
+import {
+  isOzonDeliveryProductEligible,
+  OZON_DELIVERY_MIN_PRODUCT_PRICE_RUB,
+} from "@/lib/ozon-delivery/rules";
+
+type OzonPoint = {
+  id: number;
+  name: string;
+  address: string;
+  type: string;
+  shipmentMethodIds: number[];
+};
+
+type OzonQuote = {
+  deliveryCost: number;
+  estimatedDeliveryDays: number | null;
+  cutoffAt: string | null;
+};
 
 const OrderPage = () => {
   const { items, totalPrice, clearCart } = useCart();
@@ -25,11 +40,10 @@ const OrderPage = () => {
     customerName: "",
     customerPhone: "",
     customerEmail: "",
-    deliveryType: "pickup" as "pickup" | "cdek_office",
+    deliveryType: "pickup" as "pickup" | "ozon_pvz",
     deliveryAddress: "",
-    cdekCity: "",
-    cdekCityCode: 0,
-    cdekOffice: "",
+    ozonDeliveryPointId: 0,
+    ozonShipmentMethodId: 0,
     paymentType: "online" as "online" | "cash_on_delivery",
   });
 
@@ -42,15 +56,28 @@ const OrderPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  // Используем готовые функции для CDEK
-  const {
-    data: cdekOffices,
-    loading: cdekLoading,
-    error: cdekError,
-  } = useCdekOffices(
-    formData.deliveryType === "cdek_office" ? formData.cdekCity : undefined
+  const [ozonPoints, setOzonPoints] = useState<OzonPoint[]>([]);
+  const [ozonNextCursor, setOzonNextCursor] = useState<string | null>(null);
+  const [ozonPointsLoading, setOzonPointsLoading] = useState(false);
+  const [ozonPointsError, setOzonPointsError] = useState("");
+  const [ozonQuote, setOzonQuote] = useState<OzonQuote | null>(null);
+  const [ozonQuoteLoading, setOzonQuoteLoading] = useState(false);
+  const ozonIneligibleItems = items.filter(
+    (item) => !isOzonDeliveryProductEligible(item.product.price.current),
   );
+  const canUseOzonDelivery = ozonIneligibleItems.length === 0;
+
+  useEffect(() => {
+    if (!canUseOzonDelivery && formData.deliveryType === "ozon_pvz") {
+      setFormData((current) => ({
+        ...current,
+        deliveryType: "pickup",
+        ozonDeliveryPointId: 0,
+        ozonShipmentMethodId: 0,
+      }));
+      setOzonQuote(null);
+    }
+  }, [canUseOzonDelivery, formData.deliveryType]);
 
   // Обновляем originalAmount при изменении totalPrice
   useEffect(() => {
@@ -82,66 +109,70 @@ const OrderPage = () => {
   };
 
   // Рассчитываем итоговую сумму с учетом скидки
-  const finalPrice = Math.max(0, totalPrice - promoCodeData.discountAmount);
+  const deliveryPrice = formData.deliveryType === "ozon_pvz" ? (ozonQuote?.deliveryCost ?? 0) : 0;
+  const finalPrice = Math.max(0, totalPrice - promoCodeData.discountAmount + deliveryPrice);
 
-  // Геолокация и автозаполнение ближайшего города
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
-
-        // Функция для расчёта расстояния между двумя точками (Хаверсин)
-        function getDistance(
-          lat1: number,
-          lon1: number,
-          lat2: number,
-          lon2: number
-        ) {
-          const toRad = (v: number) => (v * Math.PI) / 180;
-          const R = 6371; // км
-          const dLat = toRad(lat2 - lat1);
-          const dLon = toRad(lon2 - lon1);
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) *
-              Math.cos(toRad(lat2)) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          return R * c;
-        }
-
-        // Если у нас есть города с координатами, находим ближайший
-        if (cities.length > 0) {
-          let minDist = Infinity;
-          let nearestCity = null;
-
-          for (const city of cities) {
-            if (city.latitude && city.longitude) {
-              const dist = getDistance(
-                latitude,
-                longitude,
-                city.latitude,
-                city.longitude
-              );
-              if (dist < minDist) {
-                minDist = dist;
-                nearestCity = city;
-              }
-            }
-          }
-
-          if (nearestCity) {
-            setFormData((prev) => ({
-              ...prev,
-              cdekCity: nearestCity.city,
-              cdekCityCode: nearestCity.code,
-            }));
-          }
-        }
-      });
+  const loadOzonPoints = useCallback(async (cursor?: string | null) => {
+    setOzonPointsLoading(true);
+    setOzonPointsError("");
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const response = await fetch(`/api/ozon-delivery/points?${params}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось загрузить ПВЗ Ozon");
+      const nextPoints = Array.isArray(data.points) ? data.points : [];
+      setOzonPoints((current) => cursor ? [...current, ...nextPoints] : nextPoints);
+      setOzonNextCursor(typeof data.nextCursor === "string" ? data.nextCursor : null);
+      if (!nextPoints.length && !cursor) {
+        setOzonPointsError("Ozon пока не вернул доступные пункты выдачи для этого кабинета");
+      }
+    } catch (cause) {
+      setOzonPointsError(cause instanceof Error ? cause.message : "Не удалось загрузить ПВЗ Ozon");
+    } finally {
+      setOzonPointsLoading(false);
     }
-  }, [cities]);
+  }, []);
+
+  useEffect(() => {
+    if (formData.deliveryType === "ozon_pvz" && !ozonPoints.length && !ozonPointsLoading && !ozonPointsError) {
+      void loadOzonPoints();
+    }
+  }, [formData.deliveryType, loadOzonPoints, ozonPoints.length, ozonPointsError, ozonPointsLoading]);
+
+  useEffect(() => {
+    setOzonQuote(null);
+    if (formData.deliveryType !== "ozon_pvz" || !formData.ozonDeliveryPointId ||
+        !formData.ozonShipmentMethodId || formData.customerPhone.replace(/\D/g, "").length !== 11) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setOzonQuoteLoading(true);
+      try {
+        const response = await fetch("/api/ozon-delivery/quote", {
+          method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+          body: JSON.stringify({
+            phone: formData.customerPhone,
+            deliveryPointId: formData.ozonDeliveryPointId,
+            shipmentMethodId: formData.ozonShipmentMethodId,
+            items: items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Ozon не смог рассчитать доставку");
+        setOzonQuote(data);
+        setOzonPointsError("");
+      } catch (cause) {
+        if (!controller.signal.aborted) {
+          setOzonQuote(null);
+          setOzonPointsError(cause instanceof Error ? cause.message : "Ozon не смог рассчитать доставку");
+        }
+      } finally {
+        if (!controller.signal.aborted) setOzonQuoteLoading(false);
+      }
+    }, 300);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [formData.deliveryType, formData.customerPhone, formData.ozonDeliveryPointId,
+    formData.ozonShipmentMethodId, items]);
 
   // Функция форматирования телефонного номера
   const formatPhoneNumber = (value: string): string => {
@@ -190,33 +221,17 @@ const OrderPage = () => {
     }
 
     if (name === "deliveryType") {
-      const nextDelivery = value as "pickup" | "cdek_office";
+      const nextDelivery = value as "pickup" | "ozon_pvz";
       setFormData((prev) => ({
         ...prev,
         deliveryType: nextDelivery,
-        // при CDEK разрешаем только online
+        // Для доставки Ozon доступна только онлайн-оплата.
         paymentType: nextDelivery === "pickup" ? prev.paymentType : "online",
       }));
       return;
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Выбор города
-  const handleCitySelect = (city: {
-    code: number;
-    city: string;
-    region?: string;
-    latitude: number;
-    longitude: number;
-  }) => {
-    setFormData((prev) => ({
-      ...prev,
-      cdekCity: city.city,
-      cdekCityCode: city.code,
-      cdekOffice: "",
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,6 +243,11 @@ const OrderPage = () => {
       formData.paymentType === "cash_on_delivery"
     ) {
       setError("Оплата при получении доступна только при самовывозе");
+      setLoading(false);
+      return;
+    }
+    if (formData.deliveryType === "ozon_pvz" && !ozonQuote) {
+      setError("Выберите доступный ПВЗ и дождитесь расчёта Ozon");
       setLoading(false);
       return;
     }
@@ -246,25 +266,6 @@ const OrderPage = () => {
         discountAmount: promoCodeData.discountAmount,
         promoCodeId: promoCodeData.promoCodeId,
       };
-
-      // Если выбран CDEK, формируем адрес доставки автоматически
-      if (
-        formData.deliveryType === "cdek_office" &&
-        formData.cdekCity &&
-        formData.cdekOffice
-      ) {
-        // Находим название ПВЗ по коду
-        const selectedOffice = cdekOffices?.find(
-          (office) => office.code === formData.cdekOffice
-        );
-        if (selectedOffice) {
-          // Сохраняем код офиса и код города для CDEK интеграции
-          orderData = {
-            ...orderData,
-            deliveryAddress: `CDEK ${formData.cdekCity} ${selectedOffice.location.address} (${selectedOffice.code}|${formData.cdekCityCode})`,
-          };
-        }
-      }
 
       const response = await fetch("/api/orders/create", {
         method: "POST",
@@ -369,10 +370,11 @@ const OrderPage = () => {
                 <H2 className="text-lg">Контактные данные</H2>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-2">
                     Имя *
                   </label>
                   <input
+                    id="customerName"
                     type="text"
                     name="customerName"
                     value={formData.customerName}
@@ -384,10 +386,11 @@ const OrderPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700 mb-2">
                     Телефон *
                   </label>
                   <input
+                    id="customerPhone"
                     type="tel"
                     name="customerPhone"
                     value={formData.customerPhone}
@@ -400,10 +403,11 @@ const OrderPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="customerEmail" className="block text-sm font-medium text-gray-700 mb-2">
                     Email
                   </label>
                   <input
+                    id="customerEmail"
                     type="email"
                     name="customerEmail"
                     value={formData.customerEmail}
@@ -419,70 +423,70 @@ const OrderPage = () => {
                 <H2 className="text-lg">Способ получения</H2>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="deliveryType" className="block text-sm font-medium text-gray-700 mb-2">
                     Тип доставки
                   </label>
                   <select
+                    id="deliveryType"
                     name="deliveryType"
                     value={formData.deliveryType}
                     onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="pickup">Самовывоз</option>
-                    <option value="cdek_office">Пункт выдачи СДЭК</option>
+                    <option value="ozon_pvz" disabled={!canUseOzonDelivery}>
+                      Пункт выдачи Ozon
+                    </option>
                   </select>
+                  {!canUseOzonDelivery && (
+                    <p className="text-sm text-amber-700 mt-2">
+                      Ozon Доставка недоступна: товары дешевле {OZON_DELIVERY_MIN_PRODUCT_PRICE_RUB} ₽
+                      можно заказать только самовывозом.
+                    </p>
+                  )}
                 </div>
 
-                {formData.deliveryType === "cdek_office" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Город *
-                      </label>
-                      <SearchableCitySelect
-                        name="cdekCity"
-                        value={formData.cdekCity}
-                        cities={cities} // [{ code, city, region }]
-                        required={formData.deliveryType === "cdek_office"}
-                        onSelect={(selectedCity) => {
-                          handleCitySelect(selectedCity); // как и раньше
-                        }}
-                      />
-                    </div>
-
-                    {formData.cdekCityCode > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Пункт выдачи *
-                        </label>
-                        <select
-                          name="cdekOffice"
-                          value={formData.cdekOffice}
-                          onChange={handleInputChange}
-                          required={formData.deliveryType === "cdek_office"}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">Выберите пункт выдачи</option>
-                          {cdekOffices?.map((office) => (
-                            <option key={office.code} value={office.code}>
-                              {office.location.address}
-                            </option>
-                          ))}
-                        </select>
-
-                        {cdekLoading && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            Загрузка пунктов выдачи...
-                          </p>
-                        )}
-
-                        {cdekError && (
-                          <p className="text-sm text-red-500 mt-1">
-                            {cdekError}
-                          </p>
-                        )}
-                      </div>
+                {formData.deliveryType === "ozon_pvz" && (
+                  <div className="space-y-3">
+                    <label htmlFor="ozonDeliveryPointId" className="block text-sm font-medium text-gray-700">
+                      Пункт выдачи Ozon *
+                    </label>
+                    <select
+                      id="ozonDeliveryPointId"
+                      value={formData.ozonDeliveryPointId || ""}
+                      onChange={(event) => {
+                        const point = ozonPoints.find((candidate) => candidate.id === Number(event.target.value));
+                        setFormData((current) => ({
+                          ...current,
+                          ozonDeliveryPointId: point?.id ?? 0,
+                          ozonShipmentMethodId: point?.shipmentMethodIds[0] ?? 0,
+                        }));
+                      }}
+                      required
+                      disabled={ozonPointsLoading || !ozonPoints.length}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Выберите ПВЗ Ozon</option>
+                      {ozonPoints.map((point) => (
+                        <option key={point.id} value={point.id}>{point.name} — {point.address}</option>
+                      ))}
+                    </select>
+                    {ozonPointsLoading && <p className="text-sm text-gray-500">Загрузка пунктов Ozon…</p>}
+                    {ozonNextCursor && (
+                      <button type="button" disabled={ozonPointsLoading}
+                        onClick={() => void loadOzonPoints(ozonNextCursor)}
+                        className="text-sm underline text-gray-700">
+                        Загрузить ещё пункты
+                      </button>
                     )}
+                    {ozonQuoteLoading && <p className="text-sm text-gray-500">Расчёт доставки Ozon…</p>}
+                    {ozonQuote && (
+                      <p className="text-sm text-green-700">
+                        Доставка: {ozonQuote.deliveryCost} ₽
+                        {ozonQuote.estimatedDeliveryDays ? `, примерно ${ozonQuote.estimatedDeliveryDays} дн.` : ""}
+                      </p>
+                    )}
+                    {ozonPointsError && <p className="text-sm text-red-500">{ozonPointsError}</p>}
                   </div>
                 )}
               </div>
@@ -503,10 +507,11 @@ const OrderPage = () => {
                 <H2 className="text-lg">Способ оплаты</H2>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="paymentType" className="block text-sm font-medium text-gray-700 mb-2">
                     Тип оплаты
                   </label>
                   <select
+                    id="paymentType"
                     name="paymentType"
                     value={formData.paymentType}
                     onChange={handleInputChange}
@@ -524,9 +529,9 @@ const OrderPage = () => {
                     )}
                   </select>
 
-                  {formData.deliveryType === "cdek_office" && (
+                  {formData.deliveryType !== "pickup" && (
                     <p className="text-sm text-gray-500 mt-1">
-                      При доставке в ПВЗ СДЭК доступна только онлайн‑оплата
+                      Для доставки доступна только онлайн‑оплата
                     </p>
                   )}
                 </div>
@@ -538,7 +543,11 @@ const OrderPage = () => {
                 </div>
               )}
 
-              <Button1 type="submit" disabled={loading} className="w-full">
+              <Button1
+                type="submit"
+                disabled={loading || (formData.deliveryType === "ozon_pvz" && !ozonQuote)}
+                className="w-full"
+              >
                 {loading ? "Оформление..." : "Оформить заказ"}
               </Button1>
             </form>
@@ -559,6 +568,9 @@ const OrderPage = () => {
                     <div className="text-sm text-gray-500">
                       {item.product.price.current} ₽ × {item.quantity} шт.
                     </div>
+                    {!isOzonDeliveryProductEligible(item.product.price.current) && (
+                      <div className="text-sm text-amber-700">Только самовывоз</div>
+                    )}
                   </div>
                   <div className="font-medium">
                     {item.product.price.current * item.quantity} ₽
@@ -575,6 +587,15 @@ const OrderPage = () => {
                   <span className="text-green-600">
                     -{promoCodeData.discountAmount} ₽
                   </span>
+                </div>
+              </div>
+            )}
+
+            {deliveryPrice > 0 && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span>Доставка Ozon:</span>
+                  <span>{deliveryPrice} ₽</span>
                 </div>
               </div>
             )}

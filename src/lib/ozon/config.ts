@@ -3,7 +3,8 @@
  *
  * Set in `.env.local`:
  * - `OZON_CLIENT_ID` — seller Client-Id from Seller API settings
- * - `OZON_API_KEY` — API key (Admin role recommended for logistics)
+ * - `OZON_API_KEY` — Seller API key with permissions for the methods used.
+ * Catalog access does not establish entitlement to external-order delivery.
  */
 
 export const OZON_SELLER_API_BASE_URL =

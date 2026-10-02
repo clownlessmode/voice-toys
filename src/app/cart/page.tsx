@@ -13,7 +13,6 @@ import H2 from "@/components/ui/typography/H2";
 import Button1 from "@/components/ui/typography/Button1";
 import { motion } from "framer-motion";
 import ProductSlider from "@/components/ui/components/product-slider";
-import { notFound } from "next/navigation";
 
 // Варианты анимаций
 const containerVariants = {
@@ -73,7 +72,22 @@ const CartContent = () => {
   }, []);
 
   if (items.length === 0) {
-    notFound();
+    return (
+      <main className={cn(
+        "px-[10px] gap-[40px] xl:px-[50px] 2xl:px-[100px]",
+        "flex min-h-screen flex-col items-center bg-body-background"
+      )}>
+        <Header />
+        <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 py-12 text-center">
+          <H1>Корзина пуста</H1>
+          <Descriptor>Добавьте товары из каталога, чтобы оформить заказ</Descriptor>
+          <Link href="/catalogue">
+            <Button1>Перейти в каталог</Button1>
+          </Link>
+        </div>
+        <Footer />
+      </main>
+    );
   }
 
   return (

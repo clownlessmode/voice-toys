@@ -53,9 +53,3 @@ export function getWbSyncCronSecret(): string | undefined {
   const s = process.env.WB_SYNC_CRON_SECRET?.trim();
   return s || undefined;
 }
-
-export {
-  getOzonApiKey,
-  getOzonClientId,
-  isOzonConfigured,
-} from "@/lib/ozon/config";

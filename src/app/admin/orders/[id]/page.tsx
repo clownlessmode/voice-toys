@@ -130,6 +130,8 @@ export default function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [retryingOzon, setRetryingOzon] = useState(false);
+  const [cancellingOzon, setCancellingOzon] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -265,6 +267,39 @@ export default function OrderDetailsPage() {
       printWindow.print();
       printWindow.close();
     }, 250);
+  };
+
+  const retryOzonShipment = async () => {
+    if (!order) return;
+    setRetryingOzon(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/ozon-shipment`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ozon не создал отправление");
+      await fetchOrder();
+    } catch (cause) {
+      alert(cause instanceof Error ? cause.message : "Ошибка создания отправления Ozon");
+    } finally {
+      setRetryingOzon(false);
+    }
+  };
+
+  const cancelOzonShipment = async () => {
+    if (!order?.ozonPostingNumber) return;
+    setCancellingOzon(true);
+    try {
+      if (!window.confirm(`Отправить в Ozon запрос на отмену ${order.ozonPostingNumber}?`)) return;
+      const response = await fetch(`/api/admin/orders/${order.id}/ozon-cancel`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Ozon не принял отмену");
+      await fetchOrder();
+    } catch (cause) {
+      alert(cause instanceof Error ? cause.message : "Ошибка отмены отправления Ozon");
+    } finally {
+      setCancellingOzon(false);
+    }
   };
 
   if (loading) {
@@ -485,6 +520,39 @@ export default function OrderDetailsPage() {
                   <p className="text-sm text-gray-600">Адрес</p>
                   <p className="font-medium">{order.deliveryAddress}</p>
                 </div>
+              )}
+              {order.deliveryCost != null && order.deliveryCost > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600">Стоимость доставки</p>
+                  <p className="font-medium">{formatCurrency(order.deliveryCost, order.currency)}</p>
+                </div>
+              )}
+              {order.deliveryType === "ozon_pvz" && (
+                <>
+                  <div>
+                    <p className="text-sm text-gray-600">Статус Ozon</p>
+                    <p className="font-medium">{order.ozonDeliveryStatus || "Ожидает оплаты"}</p>
+                  </div>
+                  {order.ozonPostingNumber && (
+                    <div>
+                      <p className="text-sm text-gray-600">Отправление Ozon</p>
+                      <p className="font-medium">{order.ozonPostingNumber}</p>
+                    </div>
+                  )}
+                  {order.ozonDeliveryError && <p className="text-sm text-red-600">{order.ozonDeliveryError}</p>}
+                  {order.paidAt && !order.ozonPostingNumber && (
+                    <button type="button" onClick={retryOzonShipment} disabled={retryingOzon}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">
+                      {retryingOzon ? "Создание…" : "Повторить создание в Ozon"}
+                    </button>
+                  )}
+                  {order.ozonPostingNumber && !["CANCEL_REQUESTED", "CANCELLED"].includes(order.ozonDeliveryStatus || "") && (
+                    <button type="button" onClick={cancelOzonShipment} disabled={cancellingOzon}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50">
+                      {cancellingOzon ? "Отмена…" : "Отменить отправление Ozon"}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

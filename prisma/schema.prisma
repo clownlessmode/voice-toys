@@ -79,6 +79,16 @@ model Order {
   // Доставка
   deliveryType    String // "pickup" или "delivery"
   deliveryAddress String?
+  deliveryCost    Float  @default(0)
+  ozonDeliveryPointId  String?
+  ozonShipmentMethodId String?
+  ozonCutoffAt          String?
+  ozonIdempotencyKey    String? @unique
+  ozonOrderNumber       String?
+  ozonPostingNumber     String?
+  ozonDeliveryStatus    String?
+  ozonDeliveryError     String?
+  ozonDeliveryCreatedAt DateTime?
   
   // Сумма заказа
   totalAmount   Float
@@ -97,6 +107,8 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   paidAt        DateTime?
+  paymentType   String   @default("online")
+  paymentTransactionId String? @unique
   
   @@map("orders")
 }

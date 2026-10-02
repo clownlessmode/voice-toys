@@ -30,19 +30,16 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Проверяем, что заказ еще не оплачен
-    if (order.status === "PAID") {
+    // Match the callback eligibility checks before sending the buyer to the bank.
+    if (
+      order.status !== "CREATED" ||
+      order.paymentType !== "online" ||
+      order.paidAt !== null ||
+      order.paymentTransactionId !== null
+    ) {
       return NextResponse.json(
-        { error: "Order is already paid" },
-        { status: 400 }
-      );
-    }
-
-    // Проверяем, что заказ не отменен
-    if (order.status === "CANCELLED") {
-      return NextResponse.json(
-        { error: "Cannot pay for cancelled order" },
-        { status: 400 }
+        { error: "Order is not eligible for online payment" },
+        { status: 409 }
       );
     }
 
@@ -83,20 +80,6 @@ export async function GET(
       successUrl, // Передаем правильный URL сразу
     });
 
-    console.log("=== PAYMENT DATA ===");
-    console.log("Order:", {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      totalAmount: order.totalAmount,
-      discountAmount: order.discountAmount,
-      paymentAmount: paymentAmount,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      customerEmail: order.customerEmail,
-    });
-    console.log("Payment data:", paymentData);
-    console.log("==================");
-
     // Генерируем HTML форму
     const paymentForm = generatePaymentForm(paymentData);
 
@@ -105,14 +88,14 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
       },
     });
-  } catch (error) {
-    console.error("Error creating Modulbank payment:", error);
+  } catch {
+    console.error("Error creating Modulbank payment");
     return NextResponse.json(
       {
         error: "Failed to create payment",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

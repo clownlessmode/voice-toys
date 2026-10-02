@@ -20,6 +20,14 @@ export function transformOrderFromDB(dbOrder: any): Order {
     customerEmail: dbOrder.customerEmail,
     deliveryType: dbOrder.deliveryType,
     deliveryAddress: dbOrder.deliveryAddress,
+    deliveryCost: dbOrder.deliveryCost,
+    ozonDeliveryPointId: dbOrder.ozonDeliveryPointId,
+    ozonShipmentMethodId: dbOrder.ozonShipmentMethodId,
+    ozonOrderNumber: dbOrder.ozonOrderNumber,
+    ozonPostingNumber: dbOrder.ozonPostingNumber,
+    ozonDeliveryStatus: dbOrder.ozonDeliveryStatus,
+    ozonDeliveryError: dbOrder.ozonDeliveryError,
+    ozonDeliveryCreatedAt: dbOrder.ozonDeliveryCreatedAt?.toISOString(),
     totalAmount: dbOrder.totalAmount,
     currency: dbOrder.currency,
     items:
@@ -41,14 +49,11 @@ export function transformOrderFromDB(dbOrder: any): Order {
 }
 
 // Валидация данных заказа
-export function validateOrderData(data: {
-  customerName?: string;
-  customerPhone?: string;
-  deliveryType?: string;
-  deliveryAddress?: string;
-  cdekCity?: string;
-  items?: Array<{ productId: string; quantity: number }>;
-}): string[] {
+export function validateOrderData(input: unknown): string[] {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return ["Некорректные данные заказа"];
+  }
+  const data = input as Record<string, unknown>;
   const errors: string[] = [];
 
   if (
@@ -73,39 +78,53 @@ export function validateOrderData(data: {
 
   if (
     !data.deliveryType ||
-    !["pickup", "delivery", "cdek_office"].includes(data.deliveryType)
+    typeof data.deliveryType !== "string" ||
+    !["pickup", "ozon_pvz"].includes(data.deliveryType)
   ) {
-    errors.push("Тип доставки должен быть pickup, delivery или cdek_office");
+    errors.push("Неверный тип доставки");
   }
 
-  if (
-    data.deliveryType === "delivery" &&
-    (!data.deliveryAddress || data.deliveryAddress.trim().length === 0)
-  ) {
-    errors.push("Адрес доставки обязателен для доставки");
+  if (data.deliveryType === "ozon_pvz" &&
+      (typeof data.ozonDeliveryPointId !== "number" || !Number.isSafeInteger(data.ozonDeliveryPointId) || data.ozonDeliveryPointId <= 0)) {
+    errors.push("Выберите пункт выдачи Ozon");
   }
-
-  // Для CDEK офиса проверяем, что выбран город
-  if (
-    data.deliveryType === "cdek_office" &&
-    (!data.cdekCity || data.cdekCity.trim().length === 0)
-  ) {
-    errors.push("Город обязателен для доставки в ПВЗ CDEK");
+  if (data.deliveryType === "ozon_pvz" &&
+      (typeof data.ozonShipmentMethodId !== "number" || !Number.isSafeInteger(data.ozonShipmentMethodId) || data.ozonShipmentMethodId <= 0)) {
+    errors.push("Не выбран способ доставки Ozon");
+  }
+  if (data.paymentType !== undefined &&
+      data.paymentType !== "online" && data.paymentType !== "cash_on_delivery") {
+    errors.push("Неверный способ оплаты");
+  }
+  if (data.paymentType === "cash_on_delivery" && data.deliveryType !== "pickup") {
+    errors.push("Оплата при получении доступна только при самовывозе");
+  }
+  if (data.promoCodeId != null && typeof data.promoCodeId !== "string") {
+    errors.push("Неверный промокод");
   }
 
   if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
     errors.push("Заказ должен содержать хотя бы один товар");
   }
 
-  if (data.items) {
-    data.items.forEach((item: any, index: number) => {
-      if (!item.productId || typeof item.productId !== "string") {
+  if (Array.isArray(data.items)) {
+    const productIds = new Set<string>();
+    data.items.forEach((item: unknown, index: number) => {
+      if (!item || typeof item !== "object") {
+        errors.push(`Товар ${index + 1}: некорректные данные`);
+        return;
+      }
+      const { productId, quantity } = item as Record<string, unknown>;
+      if (!productId || typeof productId !== "string") {
         errors.push(`Товар ${index + 1}: ID продукта обязателен`);
+      } else if (productIds.has(productId)) {
+        errors.push(`Товар ${index + 1}: повторяющийся ID продукта`);
+      } else {
+        productIds.add(productId);
       }
       if (
-        !item.quantity ||
-        typeof item.quantity !== "number" ||
-        item.quantity <= 0
+        typeof quantity !== "number" ||
+        !Number.isSafeInteger(quantity) || quantity <= 0
       ) {
         errors.push(
           `Товар ${index + 1}: Количество должно быть положительным числом`

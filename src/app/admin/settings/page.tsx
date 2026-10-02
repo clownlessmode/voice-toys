@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Cloud, Database, Download } from "lucide-react";
 import type { SyncResult } from "@/lib/wb/sync-products";
+import { OzonCatalogSettings } from "./ozon-catalog";
 
 type WbSyncMode = "incremental" | "full";
 
@@ -168,6 +169,7 @@ export default function AdminSettings() {
       </div>
 
       <div className="space-y-6 mb-5">
+        <OzonCatalogSettings />
         {/* Database Management */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center mb-4">
@@ -205,7 +207,7 @@ export default function AdminSettings() {
           </div>
           <p className="text-sm text-gray-500 mb-4">
             Проверка доступа к API и ручной запуск синхронизации каталога
-            (карточки и остатки).
+            (карточки и цены; наличие на складах продавца при полной сверке).
           </p>
 
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 mb-4">
@@ -243,7 +245,7 @@ export default function AdminSettings() {
               </select>
               <p className="mt-1 text-xs text-gray-500">
                 {syncMode === "incremental"
-                  ? "С продолжения курсора: только новые/изменённые карточки (быстрее)."
+                  ? "Новые/изменённые карточки и обновление цен уже импортированных товаров."
                   : "Полный каталог WB и сопоставление; может деактивировать лишние в базе (дольше)."}
               </p>
             </div>

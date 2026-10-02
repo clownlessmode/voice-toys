@@ -13,6 +13,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatAgeGroups } from "@/lib/age-utils";
 import { getPrimaryProductImageSrc } from "@/lib/product-utils";
+import { isOzonDeliveryProductEligible } from "@/lib/ozon-delivery/rules";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -119,6 +120,9 @@ export default function Product({ product }: { product: ProductType }) {
         >
           <motion.div whileHover={{ x: 2 }} transition={{ duration: 0.2 }}>
             <T2 className="line-clamp-2 min-h-[32px]">{product.name}</T2>
+            {!isOzonDeliveryProductEligible(product.price.current) && (
+              <Descriptor className="mt-2 text-amber-700">Только самовывоз</Descriptor>
+            )}
           </motion.div>
 
           <div className="flex sm:flex-row gap-[16px] sm:justify-between sm:items-center flex-col">

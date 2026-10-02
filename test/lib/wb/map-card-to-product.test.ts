@@ -34,7 +34,6 @@ describe("mapWbCardToProductData", () => {
     expect(m.isActive).toBe(true);
     expect(m.wbCardUpdatedAt?.toISOString()).toBe("2025-03-10T16:30:00.000Z");
     expect(m.createRequest.name).toContain("Детская");
-    expect(m.createRequest.breadcrumbs[0]).toBe("Wildberries");
     expect(m.createRequest.breadcrumbs).toContain("SampleBrand");
     expect(m.createRequest.breadcrumbs).toContain("Развивающие игрушки");
     expect(m.createRequest.images[0]).toContain("example.com");
@@ -48,9 +47,9 @@ describe("mapWbCardToProductData", () => {
     expect(m.createRequest.categories).toEqual(["Развивающие игрушки"]);
 
     const charKeys = m.createRequest.characteristics.map((c) => c.key);
-    expect(charKeys).toContain("Артикул (WB)");
-    expect(charKeys).toContain("Габариты (WB, см)");
-    expect(charKeys).toContain("Размеры (WB)");
+    expect(charKeys).toContain("Артикул");
+    expect(charKeys).toContain("Габариты (см)");
+    expect(charKeys).toContain("Размеры");
     expect(charKeys).toContain("Материал");
 
     expect(m.prismaCreate.wbNmId).toBe(173549012);
@@ -58,12 +57,10 @@ describe("mapWbCardToProductData", () => {
     expect(typeof m.prismaCreate.breadcrumbs).toBe("string");
     expect(typeof m.prismaCreate.images).toBe("string");
     expect(m.prismaCreate.wbCardUpdatedAt).toEqual(m.wbCardUpdatedAt);
-    expect(m.prismaCreate.wbCardUpdatedAt?.toISOString()).toBe(
-      "2025-03-10T16:30:00.000Z"
-    );
-
-    const prismaChars = m.prismaCreate.characteristics.create;
+    const prismaChars = m.prismaCreate.characteristics?.create;
     expect(prismaChars).toHaveLength(5);
+    expect(Array.isArray(prismaChars)).toBe(true);
+    if (!Array.isArray(prismaChars)) return;
     expect(
       prismaChars.every(
         (row) =>
@@ -76,11 +73,11 @@ describe("mapWbCardToProductData", () => {
     expect(prismaChars).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "Артикул (WB)",
+          key: "Артикул",
           value: "VT-SAMPLE-001",
         }),
         expect.objectContaining({ key: "Материал", value: "пластик" }),
-        expect.objectContaining({ key: "Размеры (WB)" }),
+        expect.objectContaining({ key: "Размеры" }),
       ])
     );
 
@@ -101,16 +98,16 @@ describe("mapWbCardToProductData", () => {
     });
     expect(m).not.toBeNull();
     if (!m) return;
-    expect(m.createRequest.breadcrumbs).toEqual(["Wildberries", "Каталог"]);
+    expect(m.createRequest.breadcrumbs).toEqual(["Каталог"]);
     expect(m.createRequest.characteristics).toEqual([
-      { key: "Источник", value: "Wildberries" },
+      { key: "Источник", value: "Импорт каталога" },
     ]);
     expect(m.createRequest.price).toBe(WB_PLACEHOLDER_PRICE_RUB);
     expect(m.createRequest.description.length).toBeGreaterThan(0);
     expect(m.wbCardUpdatedAt).toBeNull();
     expect(m.prismaCreate.wbCardUpdatedAt).toBeNull();
-    expect(m.prismaCreate.characteristics.create).toEqual([
-      { key: "Источник", value: "Wildberries" },
+    expect(m.prismaCreate.characteristics?.create).toEqual([
+      { key: "Источник", value: "Импорт каталога" },
     ]);
     expect(validateProductData(m.createRequest)).toEqual([]);
   });

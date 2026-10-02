@@ -3,9 +3,6 @@ import {
   WB_COMMON_API_BASE_URL,
   WB_DISCOUNTS_API_BASE_URL,
   WB_MARKETPLACE_API_BASE_URL,
-  getOzonApiKey,
-  getOzonClientId,
-  isOzonConfigured,
   getWbContentToken,
 } from "./config";
 import {
@@ -22,7 +19,6 @@ const PING_PATH = "/ping" as const;
 const GOODS_FILTER_PRICES_PATH = "/api/v2/list/goods/filter" as const;
 const WAREHOUSES_PATH = "/api/v3/warehouses" as const;
 const STOCKS_PATH_PREFIX = "/api/v3/stocks" as const;
-const OZON_SELLER_API_BASE_URL = "https://api-seller.ozon.ru" as const;
 
 const globalRateLimiter: TokenBucketRateLimiter = createDefaultWbRateLimiter();
 let requestChain: Promise<unknown> = Promise.resolve();
@@ -328,30 +324,13 @@ type WbWarehouse = {
 
 export type WbClientOptions = {
   getToken?: () => string;
-  getOzonClientId?: () => string;
-  getOzonApiKey?: () => string;
-};
-
-export type OzonCatalogSyncItem = {
-  offerId: string;
-  name: string;
-  description: string;
-  priceRub: number;
-  oldPriceRub?: number | null;
-  images: string[];
 };
 
 export class WbClient {
   private readonly getToken: () => string;
-  private readonly getOzonClientId: (() => string) | null;
-  private readonly getOzonApiKey: (() => string) | null;
 
   constructor(options: WbClientOptions = {}) {
     this.getToken = options.getToken ?? getWbContentToken;
-    this.getOzonClientId =
-      options.getOzonClientId ?? (isOzonConfigured() ? getOzonClientId : null);
-    this.getOzonApiKey =
-      options.getOzonApiKey ?? (isOzonConfigured() ? getOzonApiKey : null);
   }
 
   /**
@@ -775,74 +754,7 @@ export class WbClient {
     return out;
   }
 
-  async syncProductsToOzonCatalog(
-    items: OzonCatalogSyncItem[]
-  ): Promise<{ enabled: boolean; synced: number; skipped: number }> {
-    if (!this.getOzonApiKey || !this.getOzonClientId) {
-      logWb("warn", "ozon_catalog_sync_skipped", {
-        reason: "missing_ozon_credentials",
-      });
-      return { enabled: false, synced: 0, skipped: items.length };
-    }
-    const normalized = items.filter(
-      (i) =>
-        i.offerId.trim().length > 0 &&
-        i.name.trim().length > 0 &&
-        Number.isFinite(i.priceRub) &&
-        i.priceRub > 0
-    );
-    if (normalized.length === 0) {
-      return { enabled: true, synced: 0, skipped: items.length };
-    }
 
-    const CHUNK = 100;
-    let synced = 0;
-
-    for (let i = 0; i < normalized.length; i += CHUNK) {
-      const chunk = normalized.slice(i, i + CHUNK);
-      const payload = {
-        items: chunk.map((p) => ({
-          offer_id: p.offerId,
-          name: p.name,
-          description: p.description,
-          price: String(Math.max(1, Math.round(p.priceRub))),
-          old_price:
-            p.oldPriceRub != null && p.oldPriceRub > p.priceRub
-              ? String(Math.round(p.oldPriceRub))
-              : undefined,
-          currency_code: "RUB",
-          primary_image: p.images[0],
-          images: p.images,
-        })),
-      };
-
-      const res = await fetch(`${OZON_SELLER_API_BASE_URL}/v3/product/import`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Client-Id": this.getOzonClientId(),
-          "Api-Key": this.getOzonApiKey(),
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        logWb("error", "ozon_catalog_sync_http_error", {
-          status: res.status,
-          bodySnippet: bodySnippet(text),
-          chunkSize: chunk.length,
-        });
-        throw new WbClientError(`Ozon product import failed: HTTP ${res.status}`, {
-          status: res.status,
-          bodySnippet: bodySnippet(text),
-          operation: "syncProductsToOzonCatalog",
-        });
-      }
-      synced += chunk.length;
-    }
-
-    return { enabled: true, synced, skipped: items.length - synced };
-  }
 }
 
 /**

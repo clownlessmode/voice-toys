@@ -103,9 +103,6 @@ export function generateSignature(
     })
     .join("&");
 
-  console.log("Data for signature:", data);
-  console.log("Sorted keys:", sortedKeys);
-  console.log("Signature string with base64:", signatureString);
 
   // 3. Двойное SHA1 шифрование: SHA1(secret_key + SHA1(secret_key + values))
   const innerHash = crypto
@@ -119,8 +116,6 @@ export function generateSignature(
     .digest("hex")
     .toLowerCase();
 
-  console.log("Inner hash:", innerHash);
-  console.log("Generated signature:", signature);
 
   return signature;
 }
@@ -191,7 +186,7 @@ export function verifyCallback(callbackData: Record<string, string>): boolean {
   const { signature: receivedSignature, ...dataWithoutSignature } =
     callbackData;
 
-  if (!receivedSignature) {
+  if (!MODULBANK_CONFIG.secretKey || !/^[a-f0-9]{40}$/i.test(receivedSignature ?? "")) {
     return false;
   }
 
@@ -199,7 +194,10 @@ export function verifyCallback(callbackData: Record<string, string>): boolean {
     dataWithoutSignature,
     MODULBANK_CONFIG.secretKey
   );
-  return expectedSignature === receivedSignature.toLowerCase();
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature, "hex"),
+    Buffer.from(receivedSignature, "hex")
+  );
 }
 
 // Генерация HTML формы для отправки на Modulbank
