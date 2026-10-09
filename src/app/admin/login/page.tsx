@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 
 export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,9 +23,8 @@ export default function AdminLogin() {
       });
 
       if (response.ok) {
-        // Успешная авторизация, перенаправляем в админку
-        router.push("/admin");
-        router.refresh();
+        // Reload the app with the newly issued HTTP-only auth cookie.
+        window.location.replace("/admin");
       } else {
         setError("Неверный пароль");
       }
